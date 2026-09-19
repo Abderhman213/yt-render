@@ -1,0 +1,78 @@
+name: render-and-upload
+
+# n8n بيشغّل الـ workflow ده عن طريق workflow_dispatch ويبعتله الـ payload.
+# GitHub Actions هي اللي بتقوم بدور السيرفر: ffmpeg والتعليق الصوتي والرفع.
+on:
+  workflow_dispatch:
+    inputs:
+      payload:
+        description: "JSON فيه lines و clips و title و description و tags"
+        required: true
+        type: string
+
+# الرندر تقيل، فمش عايزين تشغيلتين يركبوا على بعض
+concurrency:
+  group: render
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تثبيت ffmpeg
+        # مش متثبّت على صور الرنر الجديدة، فبنثبّته كل مرة (حوالي ٢٠ ثانية)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          ffmpeg -version | head -1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: تثبيت المكتبات
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet \
+            edge-tts \
+            google-api-python-client \
+            google-auth
+
+      - name: كتابة الـ payload
+        env:
+          PAYLOAD: ${{ inputs.payload }}
+        run: |
+          printf '%s' "$PAYLOAD" > payload.json
+          python -c "import json;d=json.load(open('payload.json'));print('جمل:',len(d['lines']),'| لقطات:',len(d['clips']))"
+
+      - name: الرندر
+        run: python scripts/render.py payload.json
+
+      - name: الرفع على يوتيوب
+        id: upload
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python scripts/upload.py
+
+      - name: إبلاغ n8n بالنتيجة
+        if: always()
+        env:
+          N8N_CALLBACK_URL: ${{ secrets.N8N_CALLBACK_URL }}
+        run: python scripts/callback.py
+
+      - name: حفظ الفيديو لو الرفع فشل
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ github.run_id }}
+          path: |
+            output.mp4
+            work/subs.srt
+          retention-days: 3
+          if-no-files-found: ignore
