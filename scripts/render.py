@@ -13,6 +13,7 @@
 """
 
 import json
+import math
 import os
 import re
 import shutil
@@ -23,6 +24,10 @@ from pathlib import Path
 
 WORK = Path("work")
 W, H = 1080, 1920
+FPS = 30
+SEGMENT_SECONDS = 2.5        # طول كل قطعة — قطع سريعة عشان الشورت ميبقاش ساكن
+ZOOM_MAX = 1.18              # أقصى تقريب، خفيف عشان ميبانش مصطنع
+ZOOM_SPEED = 0.0012          # مقدار الزوم لكل كادر
 GAP_BETWEEN_LINES = 0.25     # سكتة بسيطة بين الجمل، بالثواني
 DEFAULT_VOICE = "en-US-AndrewNeural"
 # أصوات edge-tts شكلها دايمًا "xx-XX-NameNeural" (زي en-US-AndrewNeural).
@@ -94,39 +99,69 @@ def join_audio(parts, gap, outfile):
     return outfile
 
 
-def normalize_clips(urls, target_total, outdir):
+def motion_filter(index):
     """
-    ينزّل كل لقطة ويحوّلها لمقاس Short، ويقصّها لطول متساوي
-    بحيث مجموعهم يغطي مدة الصوت.
-    """
-    per_clip = max(2.5, target_total / max(1, len(urls)))
-    normalized = []
+    فلتر الحركة: زوم بطيء داخل/خارج بالتبادل على كل قطعة.
 
+    اللقطة الثابتة بتخلي المشاهد يسيب الشورت بسرعة، فبنضيف حركة مستمرة.
+    بنكبّر الصورة الأول قبل الـ zoompan عشان الحركة تطلع ناعمة —
+    من غير كده الـ zoompan بيقرّب الإزاحة لأقرب بكسل فالصورة بترجف.
+    """
+    frames_per_second_step = ZOOM_SPEED
+    if index % 2 == 0:
+        zoom = f"min(1+{frames_per_second_step}*on,{ZOOM_MAX})"
+    else:
+        zoom = f"max({ZOOM_MAX}-{frames_per_second_step}*on,1)"
+
+    return (
+        f"scale={int(W * 1.5)}:{int(H * 1.5)}:force_original_aspect_ratio=increase,"
+        f"crop={int(W * 1.5)}:{int(H * 1.5)},"
+        f"zoompan=z='{zoom}':d=1:"
+        f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+        f"s={W}x{H}:fps={FPS},setsar=1"
+    )
+
+
+def prepare_segments(urls, target_total, outdir):
+    """
+    ينزّل اللقطات ويقطّعها قطع قصيرة بحركة، بدل لقطة واحدة طويلة ساكنة.
+
+    القطع السريعة (كل ثانيتين تقريبًا) هي اللي بتمسك المشاهد في الشورتس.
+    لو اللقطات أقل من عدد القطع المطلوبة، بنرجع نستخدمها تاني بس من مكان
+    مختلف جوه اللقطة، فالمشهد ما يتكررش بنفس الشكل.
+    """
+    sources = []
     for i, url in enumerate(urls):
         raw = outdir / f"raw_{i:03d}.mp4"
         try:
             download(url, raw)
+            sources.append((raw, duration_of(raw)))
         except Exception as exc:
             print(f"! اللقطة دي مش راضية تنزل، هعدّيها: {exc}", flush=True)
-            continue
 
-        out = outdir / f"clip_{i:03d}.mp4"
-        # نكبّر ونقص من النص علشان نملا الإطار العمودي من غير ما الصورة تتمطّ
-        vf = (
-            f"scale={W}:{H}:force_original_aspect_ratio=increase,"
-            f"crop={W}:{H},fps=30,setsar=1"
-        )
-        try:
-            run(["ffmpeg", "-y", "-t", f"{per_clip:.2f}", "-i", str(raw),
-                 "-an", "-vf", vf, "-c:v", "libx264", "-preset", "veryfast",
-                 "-crf", "23", "-pix_fmt", "yuv420p", str(out)])
-            normalized.append(out)
-        except subprocess.CalledProcessError as exc:
-            print(f"! اللقطة دي فشلت في المعالجة، هعدّيها: {exc}", flush=True)
-
-    if not normalized:
+    if not sources:
         raise RuntimeError("مفيش ولا لقطة اشتغلت — مش هينفع نركّب فيديو")
-    return normalized
+
+    needed = max(1, math.ceil(target_total / SEGMENT_SECONDS))
+    segments = []
+
+    for n in range(needed):
+        src, src_duration = sources[n % len(sources)]
+        lap = n // len(sources)
+        start = min(lap * SEGMENT_SECONDS, max(0.0, src_duration - SEGMENT_SECONDS))
+        out = outdir / f"seg_{n:03d}.mp4"
+        try:
+            run(["ffmpeg", "-y", "-ss", f"{start:.2f}", "-t", f"{SEGMENT_SECONDS:.2f}",
+                 "-i", str(src), "-an", "-vf", motion_filter(n),
+                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                 "-pix_fmt", "yuv420p", str(out)])
+            segments.append(out)
+        except subprocess.CalledProcessError as exc:
+            print(f"! القطعة دي فشلت، هعدّيها: {exc}", flush=True)
+
+    if not segments:
+        raise RuntimeError("مفيش ولا قطعة اتعملت — مش هينفع نركّب فيديو")
+    return segments
 
 
 def concat_video(clips, target_total, outfile):
@@ -194,9 +229,9 @@ def main():
     if total > 175:
         print("! التعليق أطول من ١٧٥ ثانية، ده مش Short. قصّر السكريبت.")
 
-    print("==> بجهّز اللقطات")
-    normalized = normalize_clips(clips, total, video_dir)
-    silent = concat_video(normalized, total, WORK / "silent.mp4")
+    print("==> بجهّز اللقطات وبقطّعها بحركة")
+    segments = prepare_segments(clips, total, video_dir)
+    silent = concat_video(segments, total, WORK / "silent.mp4")
 
     print("==> التركيب النهائي")
     final = compose(silent, voice_audio, Path("output.mp4"))
