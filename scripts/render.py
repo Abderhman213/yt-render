@@ -15,6 +15,7 @@
 import json
 import os
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,18 @@ WORK = Path("work")
 W, H = 1080, 1920
 MUSIC_VOLUME = 0.12          # الموسيقى تحت التعليق الصوتي
 GAP_BETWEEN_LINES = 0.25     # سكتة بسيطة بين الجمل، بالثواني
+DEFAULT_VOICE = "en-US-AndrewNeural"
+# أصوات edge-tts شكلها دايمًا "xx-XX-NameNeural" (زي en-US-AndrewNeural).
+# الـ AI بيتخيّل أحيانًا أسماء أصوات من مزوّدين تانيين (زي "alloy" بتاعة OpenAI)،
+# فبنرفض أي حاجة مش شكل edge-tts ونرجع للافتراضي بدل ما نوقع الرندر كله.
+EDGE_VOICE_RE = re.compile(r"^[a-z]{2}-[A-Z]{2}-\w+Neural$")
+
+
+def normalize_voice(voice):
+    if voice and EDGE_VOICE_RE.match(voice):
+        return voice
+    print(f"! صوت غير معروف لـ edge-tts: {voice!r} — هستخدم {DEFAULT_VOICE}", flush=True)
+    return DEFAULT_VOICE
 
 
 # ---------------------------------------------------------------- أدوات
@@ -225,7 +238,7 @@ def main():
     if not lines:
         raise SystemExit("السكريبت فاضي")
 
-    voice = payload.get("voice", "en-US-AndrewNeural")
+    voice = normalize_voice(payload.get("voice", DEFAULT_VOICE))
     clips = payload.get("clips", [])
     if not clips:
         raise SystemExit("مفيش لقطات في الـ payload")
