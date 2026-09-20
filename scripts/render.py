@@ -197,13 +197,18 @@ def compose(video, voice_audio, srt_file, music, outfile):
     total = duration_of(voice_audio)
 
     style = (
-        "FontName=DejaVu Sans,FontSize=16,Bold=1,"
+        "FontName=DejaVu Sans,FontSize=58,Bold=1,"
         "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
-        "BorderStyle=1,Outline=3,Shadow=1,"
-        "Alignment=2,MarginV=180"
+        "BorderStyle=1,Outline=4,Shadow=1,"
+        "Alignment=2,MarginV=380,MarginL=60,MarginR=60"
+    )
+    # لازم نحدد PlayResX/Y يساووا مقاس الفيديو الحقيقي (1080x1920)، وإلا
+    # libass بيفترض دقة قديمة (384x288) ويكبّر الخط والهامش أضعاف مضاعفة —
+    # ده اللي كان بيخلي الترجمة تطلع عملاقة وتغطي أعلى الشاشة فوق واجهة يوتيوب.
+    subtitles = (
+        f"subtitles={srt_file}:force_style='{style}':original_size={W}x{H}"
     )
     # الترجمة بتتحرق على الصورة — أغلب مشاهدين الـ Shorts بيتفرجوا من غير صوت
-    subtitles = f"subtitles={srt_file}:force_style='{style}'"
 
     cmd = ["ffmpeg", "-y", "-i", str(video), "-i", str(voice_audio)]
     if music:

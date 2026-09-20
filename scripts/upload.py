@@ -10,6 +10,7 @@
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -18,6 +19,13 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 SHORTS_MAX_SECONDS = 180
+MAX_TITLE_HASHTAGS = 5
+
+
+def hashtag(tag):
+    """'human biology' -> '#HumanBiology'. None لو التاج فاضي/رموز بس."""
+    words = re.findall(r"[A-Za-z0-9]+", tag)
+    return "#" + "".join(w.capitalize() for w in words) if words else None
 
 
 def credentials():
@@ -45,9 +53,14 @@ def main():
     title = meta["title"][:100]
     description = meta["description"][:4900]
 
-    # #Shorts في الوصف بيساعد يوتيوب يصنّفه صح
-    if meta["duration"] <= SHORTS_MAX_SECONDS and "#Shorts" not in description:
-        description = f"{description}\n\n#Shorts"
+    # سطر هاشتاجات من التاجات نفسها، بالإضافة لـ #Shorts (بيساعد يوتيوب يصنّفه صح)
+    tags_line = " ".join(
+        h for h in (hashtag(t) for t in meta.get("tags", [])[:MAX_TITLE_HASHTAGS]) if h
+    )
+    if meta["duration"] <= SHORTS_MAX_SECONDS and "#Shorts" not in tags_line:
+        tags_line = f"{tags_line} #Shorts".strip()
+    if tags_line:
+        description = f"{description}\n\n{tags_line}"
 
     body = {
         "snippet": {
