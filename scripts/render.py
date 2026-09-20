@@ -58,36 +58,58 @@ def duration_of(path):
     return float(out.stdout.strip())
 
 
-def srt_timestamp(seconds):
-    """0.0 -> 00:00:00,000"""
+def ass_timestamp(seconds):
+    """0.0 -> 0:00:00.00"""
     if seconds < 0:
         seconds = 0.0
-    ms = int(round(seconds * 1000))
-    h, ms = divmod(ms, 3_600_000)
-    m, ms = divmod(ms, 60_000)
-    s, ms = divmod(ms, 1000)
-    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+    cs = int(round(seconds * 100))
+    h, cs = divmod(cs, 360_000)
+    m, cs = divmod(cs, 6_000)
+    s, cs = divmod(cs, 100)
+    return f"{h:01d}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def build_srt(lines, durations, gap=GAP_BETWEEN_LINES):
+ASS_HEADER = """[Script Info]
+ScriptType: v4.00+
+PlayResX: {width}
+PlayResY: {height}
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,58,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,1,2,60,60,380,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+
+def build_ass(lines, durations, width, height, gap=GAP_BETWEEN_LINES):
     """
-    يبني ملف ترجمة من الجمل ومدة كل واحدة.
+    يبني ملف ترجمة (ASS) من الجمل ومدة كل واحدة.
 
     بنعرف التوقيت بالظبط لأننا إحنا اللي حوّلنا كل جملة لصوت لوحدها —
     فمفيش حاجة تتخمّن ومفيش حاجة للتعرّف الآلي على الكلام.
+
+    بنستخدم ASS بدل SRT وبنحدد PlayResX/PlayResY بمقاس الفيديو الحقيقي
+    عشان الهوامش (MarginV) تتحسب بالبكسل الصح مباشرة. لو سبنا ffmpeg
+    يحوّل SRT لـ ASS لوحده، بيفترض دقة قديمة (384x288) للحسابات الداخلية
+    حتى لو ضفنا force_style/original_size — أي MarginV أكبر من الدقة
+    الوهمية دي كان بيدفع الترجمة برّه الشاشة تمامًا (تختفي خالص).
     """
     if len(lines) != len(durations):
         raise ValueError("عدد الجمل مش مطابق لعدد المدد")
 
-    blocks = []
+    events = []
     cursor = 0.0
-    for i, (text, dur) in enumerate(zip(lines, durations), start=1):
+    for text, dur in zip(lines, durations):
         start, end = cursor, cursor + dur
-        blocks.append(
-            f"{i}\n{srt_timestamp(start)} --> {srt_timestamp(end)}\n{text.strip()}\n"
+        clean = text.strip().replace("\n", " ")
+        events.append(
+            f"Dialogue: 0,{ass_timestamp(start)},{ass_timestamp(end)},Default,,0,0,0,,{clean}"
         )
         cursor = end + gap
-    return "\n".join(blocks)
+    return ASS_HEADER.format(width=width, height=height) + "\n".join(events) + "\n"
 
 
 def download(url, dest):
@@ -192,22 +214,14 @@ def pick_music(music_dir):
     return random.choice(tracks) if tracks else None
 
 
-def compose(video, voice_audio, srt_file, music, outfile):
+def compose(video, voice_audio, ass_file, music, outfile):
     """التركيب النهائي: صورة + تعليق + موسيقى + ترجمة محروقة."""
     total = duration_of(voice_audio)
 
-    style = (
-        "FontName=DejaVu Sans,FontSize=58,Bold=1,"
-        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
-        "BorderStyle=1,Outline=4,Shadow=1,"
-        "Alignment=2,MarginV=380,MarginL=60,MarginR=60"
-    )
-    # لازم نحدد PlayResX/Y يساووا مقاس الفيديو الحقيقي (1080x1920)، وإلا
-    # libass بيفترض دقة قديمة (384x288) ويكبّر الخط والهامش أضعاف مضاعفة —
-    # ده اللي كان بيخلي الترجمة تطلع عملاقة وتغطي أعلى الشاشة فوق واجهة يوتيوب.
-    subtitles = (
-        f"subtitles={srt_file}:force_style='{style}':original_size={W}x{H}"
-    )
+    # ملف الـ ASS نفسه فيه PlayResX/PlayResY بمقاس الفيديو الحقيقي، فمفيش
+    # داعي لـ force_style أو original_size هنا — المقاسات والهوامش
+    # محسوبة بالبكسل الصح جوه الملف مباشرة (راجع build_ass).
+    subtitles = f"subtitles={ass_file}"
     # الترجمة بتتحرق على الصورة — أغلب مشاهدين الـ Shorts بيتفرجوا من غير صوت
 
     cmd = ["ffmpeg", "-y", "-i", str(video), "-i", str(voice_audio)]
@@ -258,8 +272,8 @@ def main():
     parts, durations = synthesize(lines, voice, audio_dir)
 
     print("==> ببني ملف الترجمة من مدة كل جملة")
-    srt_file = WORK / "subs.srt"
-    srt_file.write_text(build_srt(lines, durations), encoding="utf-8")
+    ass_file = WORK / "subs.ass"
+    ass_file.write_text(build_ass(lines, durations, W, H), encoding="utf-8")
 
     print("==> بلزق الصوت")
     voice_audio = join_audio(parts, GAP_BETWEEN_LINES, WORK / "voice.mp3")
@@ -277,7 +291,7 @@ def main():
     music = pick_music(Path("assets/music"))
     if music:
         print(f"    موسيقى: {music.name}")
-    final = compose(silent, voice_audio, srt_file, music, Path("output.mp4"))
+    final = compose(silent, voice_audio, ass_file, music, Path("output.mp4"))
 
     meta = {
         "id": payload.get("id", ""),
