@@ -9,12 +9,11 @@
   1. يحوّل كل جملة لصوت لوحدها بـ edge-tts  (مجاني، من غير مفتاح)
   2. يقيس مدة كل ملف صوت بـ ffprobe ويبني منها ملف الترجمة
   3. ينزّل اللقطات ويوحّد مقاسها على 1080x1920
-  4. يركّب الكل: فيديو + صوت + موسيقى خلفية + ترجمة محروقة
+  4. يركّب الكل: فيديو + صوت + ترجمة محروقة
 """
 
 import json
 import os
-import random
 import re
 import shutil
 import subprocess
@@ -24,7 +23,6 @@ from pathlib import Path
 
 WORK = Path("work")
 W, H = 1080, 1920
-MUSIC_VOLUME = 0.12          # الموسيقى تحت التعليق الصوتي
 GAP_BETWEEN_LINES = 0.25     # سكتة بسيطة بين الجمل، بالثواني
 DEFAULT_VOICE = "en-US-AndrewNeural"
 # أصوات edge-tts شكلها دايمًا "xx-XX-NameNeural" (زي en-US-AndrewNeural).
@@ -204,44 +202,8 @@ def concat_video(clips, target_total, outfile):
     return outfile
 
 
-MUSIC_MOODS = {
-    "curious": ("suspense", "intrigu", "mystery", "dramatic", "curious"),
-    "upbeat": ("energetic", "punchy", "upbeat", "fast-paced", "enthusiastic", "witty"),
-    "calm": ("calm", "awe", "cinematic", "thought-provoking", "conversational", "clear"),
-}
-
-
-def classify_mood(text):
-    """
-    بيحاول يخمّن جو الفيديو من وصف نبرة السرد (اللي جاي من جدول الأفكار)
-    عشان يختار موسيقى خلفية تليق بيه بدل ما يختار عشوائي بالكامل.
-    مفيش تصنيف مضمون 100% وده مقبول — الهدف موسيقى خفيفة مناسبة تقريبًا،
-    مش تصنيف دقيق لكل فيديو.
-    """
-    lowered = (text or "").lower()
-    for mood, keywords in MUSIC_MOODS.items():
-        if any(k in lowered for k in keywords):
-            return mood
-    return "calm"
-
-
-def pick_music(music_dir, mood_hint=""):
-    if not music_dir.is_dir():
-        return None
-    tracks = sorted(
-        p for p in music_dir.iterdir()
-        if p.suffix.lower() in {".mp3", ".m4a", ".wav", ".ogg"}
-    )
-    if not tracks:
-        return None
-
-    mood = classify_mood(mood_hint)
-    matching = [p for p in tracks if p.stem.startswith(mood)]
-    return random.choice(matching or tracks)
-
-
-def compose(video, voice_audio, ass_file, music, outfile):
-    """التركيب النهائي: صورة + تعليق + موسيقى + ترجمة محروقة."""
+def compose(video, voice_audio, ass_file, outfile):
+    """التركيب النهائي: صورة + تعليق + ترجمة محروقة."""
     total = duration_of(voice_audio)
 
     # ملف الـ ASS نفسه فيه PlayResX/PlayResY بمقاس الفيديو الحقيقي، فمفيش
@@ -250,17 +212,8 @@ def compose(video, voice_audio, ass_file, music, outfile):
     subtitles = f"subtitles={ass_file}"
     # الترجمة بتتحرق على الصورة — أغلب مشاهدين الـ Shorts بيتفرجوا من غير صوت
 
-    cmd = ["ffmpeg", "-y", "-i", str(video), "-i", str(voice_audio)]
-    if music:
-        cmd += ["-stream_loop", "-1", "-i", str(music)]
-        filter_complex = (
-            f"[0:v]{subtitles}[v];"
-            f"[2:a]volume={MUSIC_VOLUME}[bg];"
-            f"[1:a][bg]amix=inputs=2:duration=first:dropout_transition=0[a]"
-        )
-        cmd += ["-filter_complex", filter_complex, "-map", "[v]", "-map", "[a]"]
-    else:
-        cmd += ["-vf", subtitles, "-map", "0:v", "-map", "1:a"]
+    cmd = ["ffmpeg", "-y", "-i", str(video), "-i", str(voice_audio),
+           "-vf", subtitles, "-map", "0:v", "-map", "1:a"]
 
     cmd += [
         "-t", f"{total:.2f}",
@@ -314,10 +267,7 @@ def main():
     silent = concat_video(normalized, total, WORK / "silent.mp4")
 
     print("==> التركيب النهائي")
-    music = pick_music(Path("assets/music"), payload.get("mood", ""))
-    if music:
-        print(f"    موسيقى: {music.name}")
-    final = compose(silent, voice_audio, ass_file, music, Path("output.mp4"))
+    final = compose(silent, voice_audio, ass_file, Path("output.mp4"))
 
     meta = {
         "id": payload.get("id", ""),
