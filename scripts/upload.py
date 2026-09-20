@@ -95,6 +95,19 @@ def main():
     url = f"https://www.youtube.com/watch?v={video_id}"
     print(f"==> اترفع: {url}")
 
+    # غلاف من كادر فيه الترجمة ظاهرة. لو الحساب مش متفعّل برقم تليفون،
+    # يوتيوب بيرفض الغلاف المخصص — ساعتها بنكمّل عادي، الفيديو اترفع خلاص.
+    thumb = meta.get("thumbnail")
+    if thumb and Path(thumb).exists():
+        try:
+            youtube.thumbnails().set(
+                videoId=video_id, media_body=MediaFileUpload(str(thumb))
+            ).execute()
+            print("==> اتظبط الغلاف")
+        except Exception as exc:
+            print(f"! الغلاف المخصص اترفض (الحساب محتاج تفعيل برقم تليفون؟): {exc}",
+                  flush=True)
+
     # نخرّج النتيجة علشان n8n يقراها
     out = os.environ.get("GITHUB_OUTPUT")
     if out:

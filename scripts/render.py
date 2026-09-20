@@ -202,6 +202,20 @@ def concat_video(clips, target_total, outfile):
     return outfile
 
 
+def grab_thumbnail(video, first_line_duration, outfile):
+    """
+    ياخد كادر ثابت للغلاف من وقت الجملة الأولى.
+
+    يوتيوب بيختار كادر الغلاف لوحده لو مبعتناش واحد، وساعات بيقع في السكتة
+    اللي بين الجمل (GAP_BETWEEN_LINES) فيطلع الغلاف من غير ترجمة خالص.
+    بناخد الكادر من نص الجملة الأولى عشان نضمن إن الترجمة ظاهرة فيه.
+    """
+    at = max(0.2, min(first_line_duration / 2, first_line_duration - 0.15))
+    run(["ffmpeg", "-y", "-ss", f"{at:.2f}", "-i", str(video),
+         "-frames:v", "1", "-update", "1", "-q:v", "2", str(outfile)])
+    return outfile
+
+
 def compose(video, voice_audio, ass_file, outfile):
     """التركيب النهائي: صورة + تعليق + ترجمة محروقة."""
     total = duration_of(voice_audio)
@@ -269,9 +283,13 @@ def main():
     print("==> التركيب النهائي")
     final = compose(silent, voice_audio, ass_file, Path("output.mp4"))
 
+    print("==> بجهّز كادر الغلاف")
+    thumbnail = grab_thumbnail(final, durations[0], Path("thumbnail.jpg"))
+
     meta = {
         "id": payload.get("id", ""),
         "file": str(final),
+        "thumbnail": str(thumbnail),
         "duration": duration_of(final),
         "title": payload.get("title", ""),
         "description": payload.get("description", ""),
