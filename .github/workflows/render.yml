@@ -9,10 +9,15 @@ on:
         description: "JSON فيه lines و clips و title و description و tags"
         required: true
         type: string
+      channel:
+        description: "القناة: سيبها فاضية للإنجليزية، أو es للإسبانية"
+        required: false
+        default: ""
+        type: string
 
-# الرندر تقيل، فمش عايزين تشغيلتين يركبوا على بعض
+# الرندر تقيل، فمش عايزين تشغيلتين يركبوا على بعض — بس كل قناة في طابور لوحدها
 concurrency:
-  group: render
+  group: render-${{ inputs.channel }}
   cancel-in-progress: false
 
 jobs:
@@ -54,16 +59,19 @@ jobs:
 
       - name: الرفع على يوتيوب
         id: upload
+        # كل قناة ليها أسرارها. القناة الإسبانية أسرارها بنفس الأسماء + _ES،
+        # وكمان لازم تكون على مشروع Google Cloud تاني عشان حصة الرفع اليومية
+        # بتتحسب على المشروع مش على القناة.
         env:
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_CLIENT_ID: ${{ secrets[inputs.channel == 'es' && 'YT_ES_CLIENT_ID' || 'YT_CLIENT_ID'] }}
+          YT_CLIENT_SECRET: ${{ secrets[inputs.channel == 'es' && 'YT_ES_CLIENT_SECRET' || 'YT_CLIENT_SECRET'] }}
+          YT_REFRESH_TOKEN: ${{ secrets[inputs.channel == 'es' && 'YT_ES_REFRESH_TOKEN' || 'YT_REFRESH_TOKEN'] }}
         run: python scripts/upload.py
 
       - name: إبلاغ n8n بالنتيجة
         if: always()
         env:
-          N8N_CALLBACK_URL: ${{ secrets.N8N_CALLBACK_URL }}
+          N8N_CALLBACK_URL: ${{ secrets[inputs.channel == 'es' && 'N8N_ES_CALLBACK_URL' || 'N8N_CALLBACK_URL'] }}
         run: python scripts/callback.py
 
       - name: حفظ الفيديو لو الرفع فشل
@@ -71,8 +79,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: video-${{ github.run_id }}
-          path: |
-            output.mp4
-            work/subs.srt
+          path: output.mp4
           retention-days: 3
           if-no-files-found: ignore
