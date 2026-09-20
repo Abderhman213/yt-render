@@ -3,13 +3,13 @@
 عامل الرندر — بيشتغل جوه GitHub Actions، من غير سيرفر ومن غير كارت.
 
 بياخد ملف payload.json فيه السكريبت وروابط اللقطات، وبيطلّع فيديو Short
-مقاس 1080x1920 بصوت وترجمة محروقة.
+مقاس 1080x1920 بصوت.
 
 الخطوات:
   1. يحوّل كل جملة لصوت لوحدها بـ edge-tts  (مجاني، من غير مفتاح)
-  2. يقيس مدة كل ملف صوت بـ ffprobe ويبني منها ملف الترجمة
+  2. يلزق ملفات الصوت مع سكتة بسيطة بينهم
   3. ينزّل اللقطات ويوحّد مقاسها على 1080x1920
-  4. يركّب الكل: فيديو + صوت + ترجمة محروقة
+  4. يركّب الكل: فيديو + صوت
 """
 
 import json
@@ -56,60 +56,6 @@ def duration_of(path):
     return float(out.stdout.strip())
 
 
-def ass_timestamp(seconds):
-    """0.0 -> 0:00:00.00"""
-    if seconds < 0:
-        seconds = 0.0
-    cs = int(round(seconds * 100))
-    h, cs = divmod(cs, 360_000)
-    m, cs = divmod(cs, 6_000)
-    s, cs = divmod(cs, 100)
-    return f"{h:01d}:{m:02d}:{s:02d}.{cs:02d}"
-
-
-ASS_HEADER = """[Script Info]
-ScriptType: v4.00+
-PlayResX: {width}
-PlayResY: {height}
-WrapStyle: 0
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,DejaVu Sans,58,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,1,2,60,60,380,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-
-
-def build_ass(lines, durations, width, height, gap=GAP_BETWEEN_LINES):
-    """
-    يبني ملف ترجمة (ASS) من الجمل ومدة كل واحدة.
-
-    بنعرف التوقيت بالظبط لأننا إحنا اللي حوّلنا كل جملة لصوت لوحدها —
-    فمفيش حاجة تتخمّن ومفيش حاجة للتعرّف الآلي على الكلام.
-
-    بنستخدم ASS بدل SRT وبنحدد PlayResX/PlayResY بمقاس الفيديو الحقيقي
-    عشان الهوامش (MarginV) تتحسب بالبكسل الصح مباشرة. لو سبنا ffmpeg
-    يحوّل SRT لـ ASS لوحده، بيفترض دقة قديمة (384x288) للحسابات الداخلية
-    حتى لو ضفنا force_style/original_size — أي MarginV أكبر من الدقة
-    الوهمية دي كان بيدفع الترجمة برّه الشاشة تمامًا (تختفي خالص).
-    """
-    if len(lines) != len(durations):
-        raise ValueError("عدد الجمل مش مطابق لعدد المدد")
-
-    events = []
-    cursor = 0.0
-    for text, dur in zip(lines, durations):
-        start, end = cursor, cursor + dur
-        clean = text.strip().replace("\n", " ")
-        events.append(
-            f"Dialogue: 0,{ass_timestamp(start)},{ass_timestamp(end)},Default,,0,0,0,,{clean}"
-        )
-        cursor = end + gap
-    return ASS_HEADER.format(width=width, height=height) + "\n".join(events) + "\n"
-
-
 def download(url, dest):
     print(f"+ download {url} -> {dest}", flush=True)
     req = urllib.request.Request(url, headers={"User-Agent": "render-worker/1.0"})
@@ -121,14 +67,13 @@ def download(url, dest):
 # ---------------------------------------------------------------- مراحل
 
 def synthesize(lines, voice, outdir):
-    """جملة جملة، علشان نعرف مدة كل واحدة بالظبط."""
-    parts, durations = [], []
+    """جملة جملة، علشان نقدر نحط سكتة بينهم."""
+    parts = []
     for i, line in enumerate(lines):
         part = outdir / f"line_{i:03d}.mp3"
         run(["edge-tts", "--voice", voice, "--text", line, "--write-media", str(part)])
         parts.append(part)
-        durations.append(duration_of(part))
-    return parts, durations
+    return parts
 
 
 def join_audio(parts, gap, outfile):
@@ -202,41 +147,18 @@ def concat_video(clips, target_total, outfile):
     return outfile
 
 
-def grab_thumbnail(video, first_line_duration, outfile):
-    """
-    ياخد كادر ثابت للغلاف من وقت الجملة الأولى.
-
-    يوتيوب بيختار كادر الغلاف لوحده لو مبعتناش واحد، وساعات بيقع في السكتة
-    اللي بين الجمل (GAP_BETWEEN_LINES) فيطلع الغلاف من غير ترجمة خالص.
-    بناخد الكادر من نص الجملة الأولى عشان نضمن إن الترجمة ظاهرة فيه.
-    """
-    at = max(0.2, min(first_line_duration / 2, first_line_duration - 0.15))
-    run(["ffmpeg", "-y", "-ss", f"{at:.2f}", "-i", str(video),
-         "-frames:v", "1", "-update", "1", "-q:v", "2", str(outfile)])
-    return outfile
-
-
-def compose(video, voice_audio, ass_file, outfile):
-    """التركيب النهائي: صورة + تعليق + ترجمة محروقة."""
+def compose(video, voice_audio, outfile):
+    """التركيب النهائي: صورة + تعليق صوتي."""
     total = duration_of(voice_audio)
-
-    # ملف الـ ASS نفسه فيه PlayResX/PlayResY بمقاس الفيديو الحقيقي، فمفيش
-    # داعي لـ force_style أو original_size هنا — المقاسات والهوامش
-    # محسوبة بالبكسل الصح جوه الملف مباشرة (راجع build_ass).
-    subtitles = f"subtitles={ass_file}"
-    # الترجمة بتتحرق على الصورة — أغلب مشاهدين الـ Shorts بيتفرجوا من غير صوت
-
-    cmd = ["ffmpeg", "-y", "-i", str(video), "-i", str(voice_audio),
-           "-vf", subtitles, "-map", "0:v", "-map", "1:a"]
-
-    cmd += [
+    run([
+        "ffmpeg", "-y", "-i", str(video), "-i", str(voice_audio),
+        "-map", "0:v", "-map", "1:a",
         "-t", f"{total:.2f}",
         "-c:v", "libx264", "-preset", "medium", "-crf", "21",
         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         str(outfile),
-    ]
-    run(cmd)
+    ])
     return outfile
 
 
@@ -262,11 +184,7 @@ def main():
     video_dir.mkdir(exist_ok=True)
 
     print("==> بحوّل السكريبت لصوت")
-    parts, durations = synthesize(lines, voice, audio_dir)
-
-    print("==> ببني ملف الترجمة من مدة كل جملة")
-    ass_file = WORK / "subs.ass"
-    ass_file.write_text(build_ass(lines, durations, W, H), encoding="utf-8")
+    parts = synthesize(lines, voice, audio_dir)
 
     print("==> بلزق الصوت")
     voice_audio = join_audio(parts, GAP_BETWEEN_LINES, WORK / "voice.mp3")
@@ -281,15 +199,11 @@ def main():
     silent = concat_video(normalized, total, WORK / "silent.mp4")
 
     print("==> التركيب النهائي")
-    final = compose(silent, voice_audio, ass_file, Path("output.mp4"))
-
-    print("==> بجهّز كادر الغلاف")
-    thumbnail = grab_thumbnail(final, durations[0], Path("thumbnail.jpg"))
+    final = compose(silent, voice_audio, Path("output.mp4"))
 
     meta = {
         "id": payload.get("id", ""),
         "file": str(final),
-        "thumbnail": str(thumbnail),
         "duration": duration_of(final),
         "title": payload.get("title", ""),
         "description": payload.get("description", ""),
