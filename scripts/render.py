@@ -204,14 +204,40 @@ def concat_video(clips, target_total, outfile):
     return outfile
 
 
-def pick_music(music_dir):
+MUSIC_MOODS = {
+    "curious": ("suspense", "intrigu", "mystery", "dramatic", "curious"),
+    "upbeat": ("energetic", "punchy", "upbeat", "fast-paced", "enthusiastic", "witty"),
+    "calm": ("calm", "awe", "cinematic", "thought-provoking", "conversational", "clear"),
+}
+
+
+def classify_mood(text):
+    """
+    بيحاول يخمّن جو الفيديو من وصف نبرة السرد (اللي جاي من جدول الأفكار)
+    عشان يختار موسيقى خلفية تليق بيه بدل ما يختار عشوائي بالكامل.
+    مفيش تصنيف مضمون 100% وده مقبول — الهدف موسيقى خفيفة مناسبة تقريبًا،
+    مش تصنيف دقيق لكل فيديو.
+    """
+    lowered = (text or "").lower()
+    for mood, keywords in MUSIC_MOODS.items():
+        if any(k in lowered for k in keywords):
+            return mood
+    return "calm"
+
+
+def pick_music(music_dir, mood_hint=""):
     if not music_dir.is_dir():
         return None
     tracks = sorted(
         p for p in music_dir.iterdir()
         if p.suffix.lower() in {".mp3", ".m4a", ".wav", ".ogg"}
     )
-    return random.choice(tracks) if tracks else None
+    if not tracks:
+        return None
+
+    mood = classify_mood(mood_hint)
+    matching = [p for p in tracks if p.stem.startswith(mood)]
+    return random.choice(matching or tracks)
 
 
 def compose(video, voice_audio, ass_file, music, outfile):
@@ -288,7 +314,7 @@ def main():
     silent = concat_video(normalized, total, WORK / "silent.mp4")
 
     print("==> التركيب النهائي")
-    music = pick_music(Path("assets/music"))
+    music = pick_music(Path("assets/music"), payload.get("mood", ""))
     if music:
         print(f"    موسيقى: {music.name}")
     final = compose(silent, voice_audio, ass_file, music, Path("output.mp4"))
