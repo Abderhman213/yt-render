@@ -52,6 +52,8 @@ def main():
 
     title = meta["title"][:100]
     description = meta["description"][:4900]
+    # الرندر بيحدّد اللغة من الصوت. لو ناقصة لأي سبب، الإنجليزي هو الافتراضي.
+    language = meta.get("language") or "en"
 
     # سطر هاشتاجات من التاجات نفسها، بالإضافة لـ #Shorts (بيساعد يوتيوب يصنّفه صح)
     tags_line = " ".join(
@@ -68,8 +70,8 @@ def main():
             "description": description,
             "tags": meta.get("tags", [])[:15],
             "categoryId": str(meta.get("category_id", "27")),
-            "defaultLanguage": "en",
-            "defaultAudioLanguage": "en",
+            "defaultLanguage": language,
+            "defaultAudioLanguage": language,
         },
         "status": {
             "privacyStatus": meta.get("privacy", "public"),

@@ -244,6 +244,9 @@ def main():
         "id": payload.get("id", ""),
         "file": str(final),
         "duration": duration_of(final),
+        # يوتيوب بيوزّع الفيديو حسب لغته، فبنقولهاله صراحةً بدل ما يخمّن.
+        # الصوت نفسه هو أدق مصدر للغة: en-US-... يعني إنجليزي، es-ES-... إسباني.
+        "language": voice.split("-")[0],
         "title": payload.get("title", ""),
         "description": payload.get("description", ""),
         "tags": payload.get("tags", []),
