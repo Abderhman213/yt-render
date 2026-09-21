@@ -112,6 +112,68 @@ def synthesize(lines, voice, outfile):
     return outfile
 
 
+SILENCE_NOISE = "-30dB"      # أي حاجة أهدى من كده تتحسب سكتة
+SILENCE_MIN_GAP = 0.35       # مش بنلمس سكتة أقصر من كده — دي وقفة طبيعية جوه الجملة
+SILENCE_TARGET_GAP = 0.18    # أي سكتة أطول من الحد بنقصّها للمقدار ده
+
+
+def detect_silences(path, noise=SILENCE_NOISE, min_gap=SILENCE_MIN_GAP):
+    """يرجّع لستة (بداية, نهاية) للسكتات الأطول من الحد الأدنى في ملف الصوت."""
+    out = subprocess.run(
+        ["ffmpeg", "-i", str(path), "-af", f"silencedetect=noise={noise}:d={min_gap}",
+         "-f", "null", "-"],
+        capture_output=True, text=True,
+    )
+    starts = [float(m) for m in re.findall(r"silence_start:\s*([\d.]+)", out.stderr)]
+    ends = [float(m) for m in re.findall(r"silence_end:\s*([\d.]+)", out.stderr)]
+    return list(zip(starts, ends))
+
+
+def tighten_pauses(voice_path, outfile, target=SILENCE_TARGET_GAP):
+    """
+    يقصّر السكتات الطويلة بين الجمل من غير ما يلزق الكلام ببعضه.
+
+    edge-tts بيحط وقفة طبيعية بعد كل نقطة (بتوصل لثانية أحيانًا)، وده
+    اللي بيحس المستخدم بيه إنه "مقطّع". بنكتشف أي سكتة أطول من الحد
+    ونقصّها لمدة ثابتة أقصر بدل ما نمسحها خالص — مسحها بالكامل بيخلي
+    الجمل تتلزق ببعض وتبقى غير مفهومة.
+    """
+    total = duration_of(voice_path)
+    silences = detect_silences(voice_path)
+    if not silences:
+        shutil.copy(voice_path, outfile)
+        return outfile
+
+    cuts = []
+    cursor = 0.0
+    for s_start, s_end in silences:
+        if s_start > cursor:
+            cuts.append((cursor, s_start))
+        cuts.append((s_start, min(s_start + target, s_end)))
+        cursor = s_end
+    if cursor < total:
+        cuts.append((cursor, total))
+
+    parts_dir = outfile.parent / "pause_parts"
+    parts_dir.mkdir(exist_ok=True)
+    parts = []
+    for i, (start, end) in enumerate(cuts):
+        if end - start <= 0.01:
+            continue
+        part = parts_dir / f"part_{i:03d}.m4a"
+        run(["ffmpeg", "-y", "-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-i", str(voice_path),
+             "-c:a", "aac", "-b:a", "128k", str(part)])
+        parts.append(part)
+
+    listing = parts_dir / "list.txt"
+    with open(listing, "w", encoding="utf-8") as f:
+        for p in parts:
+            f.write(f"file '{p.resolve()}'\n")
+    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
+         "-c:a", "aac", "-b:a", "128k", str(outfile)])
+    return outfile
+
+
 def motion_filter(index):
     """
     فلتر الحركة: زوم بطيء داخل/خارج بالتبادل على كل قطعة.
@@ -264,7 +326,9 @@ def main():
     video_dir.mkdir(exist_ok=True)
 
     print("==> بحوّل السكريبت لصوت متصل")
-    voice_audio = synthesize(lines, voice, WORK / "voice.mp3")
+    voice_raw = synthesize(lines, voice, WORK / "voice_raw.mp3")
+    print("==> بقصّر السكتات الطويلة بين الجمل")
+    voice_audio = tighten_pauses(voice_raw, WORK / "voice.m4a")
     total = duration_of(voice_audio)
     print(f"    مدة التعليق: {total:.1f} ثانية")
 
