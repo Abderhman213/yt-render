@@ -73,6 +73,16 @@ def duration_of(path):
     return float(out.stdout.strip())
 
 
+def mean_db(path):
+    """متوسط مستوى الصوت بالديسيبل، أو None لو مقدرناش نقيسه."""
+    out = subprocess.run(
+        ["ffmpeg", "-i", str(path), "-af", "volumedetect", "-f", "null", "-"],
+        capture_output=True, text=True,
+    )
+    found = re.search(r"mean_volume:\s*(-?[\d.]+) dB", out.stderr)
+    return float(found.group(1)) if found else None
+
+
 def download(url, dest):
     print(f"+ download {url} -> {dest}", flush=True)
     req = urllib.request.Request(url, headers={"User-Agent": "render-worker/1.0"})
