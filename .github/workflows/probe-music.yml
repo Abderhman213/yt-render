@@ -1,7 +1,8 @@
 name: probe-music
 
-# مؤقت: بيدوّر على تراكات موسيقى ملكية عامة (Public Domain) ويطبع اللينكات
-# الشغالة، عشان نختار منها ونضيفها للمستودع. هيتشال بعد ما نختار.
+# مؤقت: بيكتشف لينكات تراكات موسيقى ملكية عامة (Public Domain) حقيقية.
+# الساندبوكس بيوصل GitHub بس، فالـ runner (عنده نت كامل) هو اللي بيدوّر.
+# هيتشال بعد ما نختار التراكات.
 on:
   workflow_dispatch:
 
@@ -11,47 +12,28 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: البحث في FreePD (ملكية عامة CC0)
+      - name: FreePD الهيكل الحقيقي للصفحة
         run: |
           set +e
-          echo "########## freepd.com root ##########"
-          curl -sSL --max-time 40 -A "Mozilla/5.0" https://freepd.com/ -o root.html -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-          echo "--- mp3 links found on root ---"
-          grep -oiE '(href|src)="[^"]*\.mp3"' root.html | sed 's/.*="//;s/"$//' | sort -u | head -40
-          echo "--- page links (categories) ---"
-          grep -oiE 'href="[^"]*\.(php|html)"' root.html | sed 's/.*="//;s/"$//' | sort -u | head -40
+          curl -sSL --max-time 40 -A "Mozilla/5.0" https://freepd.com/ -o root.html -w "ROOT HTTP:%{http_code} SIZE:%{size_download}\n"
+          echo "########## FULL root.html ##########"
+          cat root.html
+          echo "########## any .mp3 anywhere ##########"
+          grep -oiE 'https?://[^"'\''<> ]*\.mp3' root.html | sort -u
+          grep -oiE '[a-z0-9_./%-]*\.mp3' root.html | sort -u | head -40
+          echo "########## audio/source tags ##########"
+          grep -oiE '<(audio|source)[^>]*>' root.html | head -20
 
-          for p in epic.php upbeat.php scoring.php electronic.php world.php rock.php misc.php horror.php romantic.php comedy.php; do
-            echo "########## freepd.com/$p ##########"
-            curl -sSL --max-time 40 -A "Mozilla/5.0" "https://freepd.com/$p" -o c.html -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-            grep -oiE '(href|src)="[^"]*\.mp3"' c.html | sed 's/.*="//;s/"$//' | sort -u | head -25
-          done
-
-      - name: تجربة تحميل فعلي لأول تراك
+      - name: archive.org بحث عن موسيقى ملكية عامة
         run: |
           set +e
-          curl -sSL --max-time 40 -A "Mozilla/5.0" https://freepd.com/epic.php -o e.html
-          first=$(grep -oiE '(href|src)="[^"]*\.mp3"' e.html | sed 's/.*="//;s/"$//' | head -1)
-          echo "first track path: $first"
-          if [ -n "$first" ]; then
-            case "$first" in
-              http*) url="$first" ;;
-              /*)    url="https://freepd.com$first" ;;
-              *)     url="https://freepd.com/$first" ;;
-            esac
-            echo "downloading: $url"
-            curl -sSL --max-time 90 -A "Mozilla/5.0" "$url" -o track.mp3 -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-            ls -la track.mp3
-            file track.mp3
-          fi
-
-      - name: مصادر احتياطية
-        run: |
-          set +e
-          echo "########## archive.org metadata API ##########"
-          curl -sSL --max-time 40 "https://archive.org/metadata/MusOpen_Public_Domain_Music" -o m.json -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-          head -c 400 m.json; echo
-          echo "########## pixabay cdn reachability ##########"
-          curl -sSL --max-time 30 -o /dev/null -w "HTTP:%{http_code}\n" -A "Mozilla/5.0" "https://cdn.pixabay.com/"
-          echo "########## incompetech ##########"
-          curl -sSL --max-time 30 -o /dev/null -w "HTTP:%{http_code}\n" -A "Mozilla/5.0" "https://incompetech.com/music/royalty-free/mp3-royaltyfree/"
+          echo "########## advancedsearch: public domain audio ##########"
+          curl -sSL --max-time 40 \
+            "https://archive.org/advancedsearch.php?q=mediatype%3Aaudio+AND+licenseurl%3A%28*publicdomain*%29+AND+subject%3A%28instrumental%29&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl&rows=25&output=json" \
+            -o s1.json -w "HTTP:%{http_code}\n"
+          cat s1.json | head -c 4000; echo
+          echo "########## advancedsearch: FreeMusicArchive CC0 / netlabel ##########"
+          curl -sSL --max-time 40 \
+            "https://archive.org/advancedsearch.php?q=collection%3Anetlabels+AND+mediatype%3Aaudio+AND+format%3A%28VBR+MP3%29&fl%5B%5D=identifier&fl%5B%5D=title&rows=15&output=json" \
+            -o s2.json -w "HTTP:%{http_code}\n"
+          cat s2.json | head -c 2500; echo
