@@ -16,6 +16,7 @@
 import json
 import math
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -32,9 +33,17 @@ ZOOM_SPEED = 0.0012          # مقدار الزوم لكل كادر
 MUSIC_VOLUME = 0.40          # حجم الموسيقى قبل ما تتخفض تحت الكلام
 DEFAULT_VOICE = "en-US-AndrewNeural"
 
-# موسيقى الخلفية بنولّدها بنفسنا (مش تراك جاهز) عشان صفر مخاطرة حقوق نشر على
-# يوتيوب. تتابع أكوردات Am–F–C–G (لوب ١٢ ثانية) بيتكرر لحد ما يغطي الفيديو،
-# نغمات جيبية مع طبقة مزاحة بسيطة (detune) عشان دفء، وفلتر وصدى خفيف.
+# تراكات موسيقى خلفية حقيقية وجاهزة (Public Domain / CC0، راجع
+# assets/music/SOURCES.md للمصدر والرخصة) — دي الاختيار الأساسي بطلب المستخدم
+# صراحة ("هات تراكات جاهزة"). بنعمل loudnorm لأي تراك نختاره عشان مستوى الصوت
+# يبقى ثابت مهما اختلف التراك الأصلي، فتوازن sidechaincompress في compose()
+# يفضل شغال صح.
+MUSIC_DIR = Path("assets/music")
+
+# لو مفيش تراكات حقيقية (بيئة تجريبية من غير assets/music مثلاً)، بنرجع
+# لموسيقى بنولّدها بنفسنا كـ fallback عشان الرندر ميقعش. تتابع أكوردات
+# Am–F–C–G (لوب ١٢ ثانية) بيتكرر لحد ما يغطي الفيديو، نغمات جيبية مع طبقة
+# مزاحة بسيطة (detune) عشان دفء، وفلتر وصدى خفيف.
 MUSIC_CHORDS = [
     [110.00, 220.00, 261.63, 329.63],   # Am
     [87.31, 174.61, 220.00, 261.63],    # F
@@ -261,13 +270,49 @@ def _music_chord(freqs, outfile):
     return outfile
 
 
+def _pick_real_track():
+    """تراك عشوائي من assets/music، أو None لو المجلد فاضي/مش موجود."""
+    if not MUSIC_DIR.is_dir():
+        return None
+    tracks = sorted(MUSIC_DIR.glob("*.mp3"))
+    return random.choice(tracks) if tracks else None
+
+
 def build_music(target_total, outfile, outdir):
     """
-    موسيقى خلفية متصلة تغطي الفيديو كله — بنولّدها بنفسنا بالكامل.
+    موسيقى خلفية متصلة تغطي الفيديو كله.
+
+    بنفضّل تراك حقيقي جاهز من assets/music (Public Domain / CC0 — راجع
+    SOURCES.md) وبنطبّعه (loudnorm) لمستوى ثابت مهما كان التراك الأصلي عالي
+    أو واطي، عشان توازن sidechaincompress في compose() يفضل شغال زي ما
+    اتكيّل. لو مفيش تراكات، بنرجع لموسيقى مولّدة محليًا كـ fallback.
+    """
+    track = _pick_real_track()
+    if track is None:
+        print("    مفيش تراكات حقيقية في assets/music، هستخدم موسيقى مولّدة كـ fallback", flush=True)
+        return _build_generated_music(target_total, outfile, outdir)
+
+    # بعض التراكات فيها صورة غلاف مضمّنة (attached pic) بتتقرا كـ"فيديو" —
+    # -vn يمنع ffmpeg يحاول يشفّرها مع الصوت في حاوية m4a وتفشل العملية.
+    normalized = outdir / "track_normalized.m4a"
+    run(["ffmpeg", "-y", "-i", str(track), "-vn",
+         "-af", "loudnorm=I=-19:TP=-1.5:LRA=11",
+         "-c:a", "aac", "-b:a", "192k", str(normalized)])
+
+    track_seconds = duration_of(normalized)
+    loops = max(0, math.ceil(target_total / track_seconds) - 1)
+    run(["ffmpeg", "-y", "-stream_loop", str(loops), "-i", str(normalized), "-vn",
+         "-t", f"{target_total:.2f}", "-c:a", "aac", "-b:a", "192k", str(outfile)])
+    print(f"    موسيقى الخلفية: {track.name} (تراك حقيقي Public Domain)", flush=True)
+    return outfile
+
+
+def _build_generated_music(target_total, outfile, outdir):
+    """
+    Fallback: موسيقى خلفية بنولّدها بنفسنا بالكامل، لو مفيش تراكات جاهزة.
 
     بنبني لوب ١٢ ثانية (تتابع أكوردات Am–F–C–G) وبنكرّره لحد ما يغطي مدة
-    التعليق. توليدها محليًا معناه صفر مخاطرة حقوق نشر — ولا تراك خارجي ممكن
-    يجيب ضربة على القناة أو يوقّف الأرباح، وثابتة على كل الفيديوهات.
+    التعليق. توليدها محليًا معناه صفر مخاطرة حقوق نشر.
     """
     parts = []
     for i, freqs in enumerate(MUSIC_CHORDS):
