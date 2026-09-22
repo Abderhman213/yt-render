@@ -17,45 +17,66 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: تحميل التراكات المُختارة (CC0 موثّقة)
+      - name: تحميل تراكات إضافية بمزاجات متنوعة (كل واحد CC0 موثّق)
         run: |
           set -e
           mkdir -p assets/music
           cd assets/music
 
+          # حماسي/مبهج — مناسب لحقائق ممتعة وخفيفة
           curl -sSL --max-time 60 -A "Mozilla/5.0" \
-            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_02_-_Poupis_Theme.mp3" \
-            -o "01-poupis-theme.mp3" -w "1 HTTP:%{http_code} SIZE:%{size_download}\n"
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_20_-_SUPER_POUPI.mp3" \
+            -o "07-super-poupi.mp3" -w "7 HTTP:%{http_code} SIZE:%{size_download}\n"
 
           curl -sSL --max-time 60 -A "Mozilla/5.0" \
-            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_22_-_The_adventure.mp3" \
-            -o "02-the-adventure.mp3" -w "2 HTTP:%{http_code} SIZE:%{size_download}\n"
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_16_-_Disco_Cat.mp3" \
+            -o "08-disco-cat.mp3" -w "8 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          # هادي/دافئ — مناسب لسرد هادي أو نهايات
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_56_-_Tea_with_Granma.mp3" \
+            -o "09-tea-with-granma.mp3" -w "9 HTTP:%{http_code} SIZE:%{size_download}\n"
 
           curl -sSL --max-time 60 -A "Mozilla/5.0" \
-            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_57_-_Quiet_Saturday.mp3" \
-            -o "03-quiet-saturday.mp3" -w "3 HTTP:%{http_code} SIZE:%{size_download}\n"
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_50_-_Chillin_Poupi.mp3" \
+            -o "10-chillin-poupi.mp3" -w "10 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          # غامض/متوتر — مناسب لحوادث/سكاندلات/جدل
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/fabled-black-rider-st-lp/Fabled%20Black%20Rider%20-%20FABLED%20BLACK%20RIDER%20-Fabled%20Black%20Rider-%20-%2002%20Caves%20Pitch-Black%20But%20For%20The%20Glow%20Of%20Goblin-Blades.mp3" \
+            -o "11-dark-caves.mp3" -w "11 HTTP:%{http_code} SIZE:%{size_download}\n"
 
           curl -sSL --max-time 60 -A "Mozilla/5.0" \
-            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_45_-_The_Horizon.mp3" \
-            -o "04-the-horizon.mp3" -w "4 HTTP:%{http_code} SIZE:%{size_download}\n"
+            "https://archive.org/download/fabled-black-rider-st-lp/Fabled%20Black%20Rider%20-%20FABLED%20BLACK%20RIDER%20-Fabled%20Black%20Rider-%20-%2009%20Descending%20Into%20The%20Chambers%20Beneath%20The%20Old%20Reliquary.mp3" \
+            -o "12-dark-chambers.mp3" -w "12 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          # ملحمي/درامي — مناسب لقصص كبيرة/سجلات
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/fabled-black-rider-st-lp/Fabled%20Black%20Rider%20-%20FABLED%20BLACK%20RIDER%20-Fabled%20Black%20Rider-%20-%2006%20Making%20A%20Fire%20On%20The%20Battle-Meadow.mp3" \
+            -o "13-epic-battle-meadow.mp3" -w "13 HTTP:%{http_code} SIZE:%{size_download}\n"
 
           curl -sSL --max-time 60 -A "Mozilla/5.0" \
-            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_15_-_Cat_City.mp3" \
-            -o "05-cat-city.mp3" -w "5 HTTP:%{http_code} SIZE:%{size_download}\n"
+            "https://archive.org/download/fabled-black-rider-st-lp/Fabled%20Black%20Rider%20-%20FABLED%20BLACK%20RIDER%20-Fabled%20Black%20Rider-%20-%2001%20Rumours%20From%20The%20East.mp3" \
+            -o "14-epic-rumours.mp3" -w "14 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          # إلكتروني/تقني — مناسب لعلوم وتكنولوجيا
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/Cortexelation/cortexelation-02-coronatextile_64kb.mp3" \
+            -o "15-electronic-coronatextile.mp3" -w "15 HTTP:%{http_code} SIZE:%{size_download}\n"
 
           curl -sSL --max-time 60 -A "Mozilla/5.0" \
-            "https://archive.org/download/venetian-moon/Venetian%20Moon.mp3" \
-            -o "06-venetian-moon.mp3" -w "6 HTTP:%{http_code} SIZE:%{size_download}\n"
+            "https://archive.org/download/Cortexelation/cortexelation-05-extricateloon_64kb.mp3" \
+            -o "16-electronic-extricateloon.mp3" -w "16 HTTP:%{http_code} SIZE:%{size_download}\n"
 
           echo "--- files ---"
           ls -la
           echo "--- verify each is a real mp3 ---"
-          for f in *.mp3; do file "$f"; done
+          for f in 0[7-9]*.mp3 1[0-6]*.mp3; do file "$f"; done
 
-      - name: التحقق من الرخصة (لازم CC0 لكل تراك)
+      - name: التحقق من الرخصة (لازم CC0 لكل مصدر جديد)
         run: |
           set -e
-          for id in Komiku-Poupis_incredible_adventures venetian-moon; do
+          for id in Komiku-Poupis_incredible_adventures fabled-black-rider-st-lp Cortexelation; do
             lic=$(curl -sSL --max-time 30 "https://archive.org/metadata/$id" | grep -oE '"licenseurl":"[^"]*"' | head -1)
             echo "$id -> $lic"
             case "$lic" in
@@ -64,7 +85,7 @@ jobs:
             esac
           done
 
-      - name: ملف مصادر/تراخيص للتوثيق
+      - name: تحديث ملف المصادر/التراخيص
         run: |
           cat > assets/music/SOURCES.md <<'EOF'
           # مصادر موسيقى الخلفية
@@ -72,8 +93,9 @@ jobs:
           كل التراكات دي Public Domain (CC0 1.0 Universal) من archive.org —
           استخدام تجاري كامل من غير أي احتياج لنسب المصدر (attribution) أو ترخيص.
 
-          - 01-poupis-theme.mp3, 02-the-adventure.mp3, 03-quiet-saturday.mp3,
-            04-the-horizon.mp3, 05-cat-city.mp3:
+          راجع manifest.json لمزاج كل تراك (mood tags).
+
+          - 01 إلى 05 و 07 إلى 10:
             Komiku — "Poupi's incredible adventures !" soundtrack
             https://archive.org/details/Komiku-Poupis_incredible_adventures
             License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
@@ -81,6 +103,16 @@ jobs:
           - 06-venetian-moon.mp3:
             "Venetian Moon"
             https://archive.org/details/venetian-moon
+            License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+          - 11 و 12 و 13 و 14:
+            "Fabled Black Rider" S/T LP
+            https://archive.org/details/fabled-black-rider-st-lp
+            License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+          - 15 و 16:
+            "Cortexelation"
+            https://archive.org/details/Cortexelation
             License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
           EOF
           cat assets/music/SOURCES.md
@@ -94,10 +126,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "no changes to commit"
           else
-            git commit -m "Add CC0 background music tracks (public domain, no attribution required)
+            git commit -m "Widen background music library across mood categories (CC0)
 
-          Sourced from archive.org, license verified programmatically before
-          commit (creativecommons.org/publicdomain/zero/1.0/ for every track).
-          See assets/music/SOURCES.md for provenance."
+          Adds upbeat, calm, dark/tense, epic and electronic tracks — all
+          license-verified public domain (CC0) from archive.org — so the
+          render pipeline can match music mood to a video's topic instead
+          of picking any track at random. See assets/music/SOURCES.md."
             git push
           fi
