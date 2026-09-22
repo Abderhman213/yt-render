@@ -1,9 +1,8 @@
 name: probe-music
 
-# مؤقت: بيكتشف لينكات تراكات موسيقى ملكية عامة (CC0) حقيقية ومناسبة
-# (طاقة/سينمائي) من archive.org، وبيتأكد من أسماء الملفات القابلة للتحميل.
-# الساندبوكس بيوصل GitHub بس، فالـ runner (عنده نت كامل) هو اللي بيدوّر.
-# هيتشال بعد ما نختار التراكات.
+# مؤقت: بيفحص تراكات ملكية عامة (CC0) مرشّحة على archive.org عن طريق
+# الـ metadata API (أوثق من advancedsearch اللي بيرجع أخطاء متقطعة)
+# ويجيب أسماء الملفات القابلة للتحميل فعلياً. هيتشال بعد ما نختار.
 on:
   workflow_dispatch:
 
@@ -13,16 +12,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: بحث بسيط عن صوت CC0 (نفس الاستعلام اللي اشتغل قبل كده)
-        run: |
-          set +e
-          curl -sSL --max-time 40 \
-            "https://archive.org/advancedsearch.php?q=mediatype%3Aaudio+AND+licenseurl%3A%28*publicdomain%2Fzero*%29+AND+subject%3A%28instrumental%29&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=downloads&sort%5B%5D=downloads+desc&rows=60&output=json" \
-            -o q_instrumental.json -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-          cat q_instrumental.json
-          echo
-
-      - name: كتابة سكريبتات الفحص
+      - name: كتابة سكريبت فحص الملفات
         run: |
           printf '%s\n' \
             'import json, sys' \
@@ -31,24 +21,17 @@ jobs:
             '    if f.get("name", "").lower().endswith(".mp3"):' \
             '        print(f.get("name"), f.get("size"), f.get("length"))' \
             > list_mp3s.py
-          printf '%s\n' \
-            'import json' \
-            'd = json.load(open("q_instrumental.json"))' \
-            'docs = d.get("response", {}).get("docs", [])' \
-            'for x in docs[:10]:' \
-            '    print(x.get("identifier"))' \
-            > top_ids.py
           cat list_mp3s.py
-          cat top_ids.py
 
-      - name: تفاصيل الملفات لأفضل مرشحين (الأعلى تحميلاً)
+      - name: فحص مرشّحين CC0 معروفين عن طريق metadata API
         run: |
           set +e
-          ids=$(python3 top_ids.py 2>&1)
-          echo "candidate ids: $ids"
+          ids="irish-instrumental-music TwiceUpon venetian-moon duck-music Komiku-Poupis_incredible_adventures fabled-black-rider-st-lp SyntheticSoundsKOWSSantaRosa Cortexelation"
           for id in $ids; do
             echo "########## metadata: $id ##########"
-            curl -sSL --max-time 30 "https://archive.org/metadata/$id" -o "meta_${id}.json" -w "HTTP:%{http_code}\n"
+            curl -sSL --max-time 30 "https://archive.org/metadata/$id" -o "meta_${id}.json" -w "HTTP:%{http_code} SIZE:%{size_download}\n"
+            echo "--- license ---"
+            grep -oE '"licenseurl":"[^"]*"' "meta_${id}.json" | head -1
             echo "--- mp3 files (name size length) ---"
             python3 list_mp3s.py "meta_${id}.json"
           done
