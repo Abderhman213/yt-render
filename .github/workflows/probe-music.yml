@@ -25,26 +25,25 @@ jobs:
             echo
           done
 
+      - name: كتابة سكريبت فحص الملفات
+        run: |
+          printf '%s\n' \
+            'import json, sys' \
+            'd = json.load(open(sys.argv[1]))' \
+            'for f in d.get("files", []):' \
+            '    if f.get("name", "").lower().endswith(".mp3"):' \
+            '        print(f.get("name"), f.get("size"), f.get("length"))' \
+            > list_mp3s.py
+          cat list_mp3s.py
+
       - name: تفاصيل الملفات لأفضل مرشحين
         run: |
           set +e
-          # هجمع كل identifiers من نتائج البحث، وآخد أول 6 وأشوف ملفاتهم
           ids=$(cat q_*.json | grep -oE '"identifier":"[^"]*"' | sed 's/"identifier":"//;s/"$//' | sort -u | head -6)
           echo "candidate ids: $ids"
           for id in $ids; do
             echo "########## metadata: $id ##########"
             curl -sSL --max-time 30 "https://archive.org/metadata/$id" -o "meta_${id}.json" -w "HTTP:%{http_code}\n"
-            echo "--- mp3 files ---"
-            grep -oE '"name":"[^"]*\.mp3"' "meta_${id}.json" | sed 's/"name":"//;s/"$//'
-            echo "--- sizes for those (raw grep near name) ---"
-            python3 -c "
-import json
-try:
-    d = json.load(open('meta_${id}.json'))
-    for f in d.get('files', []):
-        if f.get('name','').lower().endswith('.mp3'):
-            print(f.get('name'), f.get('size'), f.get('length'))
-except Exception as e:
-    print('parse error', e)
-"
+            echo "--- mp3 files (name size length) ---"
+            python3 list_mp3s.py "meta_${id}.json"
           done
