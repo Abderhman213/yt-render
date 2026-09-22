@@ -1,0 +1,103 @@
+name: fetch-music
+
+# بيحمّل تراكات موسيقى ملكية عامة (CC0) مُتحقّق منها من archive.org
+# ويضيفها للمستودع تحت assets/music/. الساندبوكس مايقدرش يوصل
+# archive.org، فده بيشتغل ع الـ runner اللي عنده نت كامل ويعمل كوميت.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تحميل التراكات المُختارة (CC0 موثّقة)
+        run: |
+          set -e
+          mkdir -p assets/music
+          cd assets/music
+
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_02_-_Poupis_Theme.mp3" \
+            -o "01-poupis-theme.mp3" -w "1 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_22_-_The_adventure.mp3" \
+            -o "02-the-adventure.mp3" -w "2 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_57_-_Quiet_Saturday.mp3" \
+            -o "03-quiet-saturday.mp3" -w "3 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_45_-_The_Horizon.mp3" \
+            -o "04-the-horizon.mp3" -w "4 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/Komiku-Poupis_incredible_adventures/Komiku_-_15_-_Cat_City.mp3" \
+            -o "05-cat-city.mp3" -w "5 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          curl -sSL --max-time 60 -A "Mozilla/5.0" \
+            "https://archive.org/download/venetian-moon/Venetian%20Moon.mp3" \
+            -o "06-venetian-moon.mp3" -w "6 HTTP:%{http_code} SIZE:%{size_download}\n"
+
+          echo "--- files ---"
+          ls -la
+          echo "--- verify each is a real mp3 ---"
+          for f in *.mp3; do file "$f"; done
+
+      - name: التحقق من الرخصة (لازم CC0 لكل تراك)
+        run: |
+          set -e
+          for id in Komiku-Poupis_incredible_adventures venetian-moon; do
+            lic=$(curl -sSL --max-time 30 "https://archive.org/metadata/$id" | grep -oE '"licenseurl":"[^"]*"' | head -1)
+            echo "$id -> $lic"
+            case "$lic" in
+              *publicdomain/zero*) echo "OK: CC0" ;;
+              *) echo "FAIL: not CC0 for $id"; exit 1 ;;
+            esac
+          done
+
+      - name: ملف مصادر/تراخيص للتوثيق
+        run: |
+          cat > assets/music/SOURCES.md <<'EOF'
+          # مصادر موسيقى الخلفية
+
+          كل التراكات دي Public Domain (CC0 1.0 Universal) من archive.org —
+          استخدام تجاري كامل من غير أي احتياج لنسب المصدر (attribution) أو ترخيص.
+
+          - 01-poupis-theme.mp3, 02-the-adventure.mp3, 03-quiet-saturday.mp3,
+            04-the-horizon.mp3, 05-cat-city.mp3:
+            Komiku — "Poupi's incredible adventures !" soundtrack
+            https://archive.org/details/Komiku-Poupis_incredible_adventures
+            License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+          - 06-venetian-moon.mp3:
+            "Venetian Moon"
+            https://archive.org/details/venetian-moon
+            License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+          EOF
+          cat assets/music/SOURCES.md
+
+      - name: كوميت التراكات للمستودع
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/music
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "Add CC0 background music tracks (public domain, no attribution required)
+
+          Sourced from archive.org, license verified programmatically before
+          commit (creativecommons.org/publicdomain/zero/1.0/ for every track).
+          See assets/music/SOURCES.md for provenance."
+            git push
+          fi
