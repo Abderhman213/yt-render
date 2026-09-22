@@ -80,7 +80,10 @@ jobs:
             lic=$(curl -sSL --max-time 30 "https://archive.org/metadata/$id" | grep -oE '"licenseurl":"[^"]*"' | head -1)
             echo "$id -> $lic"
             case "$lic" in
-              *publicdomain/zero*) echo "OK: CC0" ;;
+              # publicdomain/zero = CC0 1.0 (الحديثة)، licenses/publicdomain = CC Public
+              # Domain Dedication (نفس المعنى، رابط قديم) — نرفض mark/1.0 (مجرد "علامة"
+              # إن العمل عام أصلاً، مش تنازل رسمي من الرافع) وأي حاجة تانية.
+              *publicdomain/zero*|*licenses/publicdomain*) echo "OK: CC0/public domain dedication" ;;
               *) echo "FAIL: not CC0 for $id"; exit 1 ;;
             esac
           done
@@ -113,7 +116,7 @@ jobs:
           - 15 و 16:
             "Cortexelation"
             https://archive.org/details/Cortexelation
-            License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+            License: CC Public Domain Dedication (http://creativecommons.org/licenses/publicdomain/) — نفس معنى CC0
           EOF
           cat assets/music/SOURCES.md
 

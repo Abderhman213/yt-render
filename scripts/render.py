@@ -30,7 +30,7 @@ FPS = 30
 SEGMENT_SECONDS = 2.5        # طول كل قطعة — قطع سريعة عشان الشورت ميبقاش ساكن
 ZOOM_MAX = 1.18              # أقصى تقريب، خفيف عشان ميبانش مصطنع
 ZOOM_SPEED = 0.0012          # مقدار الزوم لكل كادر
-MUSIC_VOLUME = 0.40          # حجم الموسيقى قبل ما تتخفض تحت الكلام
+MUSIC_VOLUME = 0.25          # حجم الموسيقى قبل ما تتخفض تحت الكلام — خُفِّض بطلب المستخدم
 DEFAULT_VOICE = "en-US-AndrewNeural"
 
 # تراكات موسيقى خلفية حقيقية وجاهزة (Public Domain / CC0، راجع
@@ -39,6 +39,9 @@ DEFAULT_VOICE = "en-US-AndrewNeural"
 # يبقى ثابت مهما اختلف التراك الأصلي، فتوازن sidechaincompress في compose()
 # يفضل شغال صح.
 MUSIC_DIR = Path("assets/music")
+MUSIC_MANIFEST = MUSIC_DIR / "manifest.json"
+# مزاج افتراضي لو الـ payload مبعتش mood أو المزاج المطلوب مش موجود له تراك.
+DEFAULT_MOOD = "cinematic"
 
 # لو مفيش تراكات حقيقية (بيئة تجريبية من غير assets/music مثلاً)، بنرجع
 # لموسيقى بنولّدها بنفسنا كـ fallback عشان الرندر ميقعش. تتابع أكوردات
@@ -270,24 +273,51 @@ def _music_chord(freqs, outfile):
     return outfile
 
 
-def _pick_real_track():
-    """تراك عشوائي من assets/music، أو None لو المجلد فاضي/مش موجود."""
+def _load_manifest():
+    """{اسم الملف: [مزاج, مزاج...]} من manifest.json، أو {} لو الملف مش موجود."""
+    if not MUSIC_MANIFEST.is_file():
+        return {}
+    try:
+        return json.loads(MUSIC_MANIFEST.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _pick_real_track(mood=None):
+    """
+    تراك من assets/music يناسب المزاج المطلوب، وعشوائي بين المرشّحين لو
+    أكتر من واحد بيطابق — عشان نفس المزاج مايطلّعش نفس التراك كل مرة.
+
+    لو مفيش مزاج متحدد أو مفيش تراك بيطابقه، بنرجع لأي تراك عشوائي بدل
+    ما نوقف الرندر على تفصيلة تصنيف.
+    """
     if not MUSIC_DIR.is_dir():
         return None
     tracks = sorted(MUSIC_DIR.glob("*.mp3"))
-    return random.choice(tracks) if tracks else None
+    if not tracks:
+        return None
+
+    manifest = _load_manifest()
+    if mood:
+        matching = [t for t in tracks if mood in manifest.get(t.name, [])]
+        if matching:
+            return random.choice(matching)
+
+    return random.choice(tracks)
 
 
-def build_music(target_total, outfile, outdir):
+def build_music(target_total, outfile, outdir, mood=None):
     """
     موسيقى خلفية متصلة تغطي الفيديو كله.
 
     بنفضّل تراك حقيقي جاهز من assets/music (Public Domain / CC0 — راجع
-    SOURCES.md) وبنطبّعه (loudnorm) لمستوى ثابت مهما كان التراك الأصلي عالي
-    أو واطي، عشان توازن sidechaincompress في compose() يفضل شغال زي ما
-    اتكيّل. لو مفيش تراكات، بنرجع لموسيقى مولّدة محليًا كـ fallback.
+    SOURCES.md) يناسب مزاج الموضوع (mood من الـ payload، زي upbeat/calm/
+    dark/epic/electronic — راجع manifest.json)، وبنطبّعه (loudnorm) لمستوى
+    ثابت مهما كان التراك الأصلي عالي أو واطي، عشان توازن sidechaincompress
+    في compose() يفضل شغال زي ما اتكيّل. لو مفيش تراكات، بنرجع لموسيقى
+    مولّدة محليًا كـ fallback.
     """
-    track = _pick_real_track()
+    track = _pick_real_track(mood)
     if track is None:
         print("    مفيش تراكات حقيقية في assets/music، هستخدم موسيقى مولّدة كـ fallback", flush=True)
         return _build_generated_music(target_total, outfile, outdir)
@@ -429,7 +459,8 @@ def main():
     print("==> بجهّز موسيقى الخلفية")
     music_dir = WORK / "music"
     music_dir.mkdir(exist_ok=True)
-    music = build_music(total, WORK / "music.m4a", music_dir)
+    mood = payload.get("mood") or DEFAULT_MOOD
+    music = build_music(total, WORK / "music.m4a", music_dir, mood=mood)
 
     print("==> التركيب النهائي")
     final = compose(silent, music, voice_audio, Path("output.mp4"))
