@@ -29,8 +29,19 @@ FPS = 30
 SEGMENT_SECONDS = 2.5        # طول كل قطعة — قطع سريعة عشان الشورت ميبقاش ساكن
 ZOOM_MAX = 1.18              # أقصى تقريب، خفيف عشان ميبانش مصطنع
 ZOOM_SPEED = 0.0012          # مقدار الزوم لكل كادر
-AMBIENCE_VOLUME = 0.22       # حجم صوت الخلفية تحت التعليق
+MUSIC_VOLUME = 0.40          # حجم الموسيقى قبل ما تتخفض تحت الكلام
 DEFAULT_VOICE = "en-US-AndrewNeural"
+
+# موسيقى الخلفية بنولّدها بنفسنا (مش تراك جاهز) عشان صفر مخاطرة حقوق نشر على
+# يوتيوب. تتابع أكوردات Am–F–C–G (لوب ١٢ ثانية) بيتكرر لحد ما يغطي الفيديو،
+# نغمات جيبية مع طبقة مزاحة بسيطة (detune) عشان دفء، وفلتر وصدى خفيف.
+MUSIC_CHORDS = [
+    [110.00, 220.00, 261.63, 329.63],   # Am
+    [87.31, 174.61, 220.00, 261.63],    # F
+    [130.81, 261.63, 329.63, 392.00],   # C
+    [98.00, 196.00, 246.94, 293.66],    # G
+]
+MUSIC_CHORD_SECONDS = 3.0
 # أصوات edge-tts شكلها دايمًا "xx-XX-NameNeural" (زي en-US-AndrewNeural).
 # الـ AI بيتخيّل أحيانًا أسماء أصوات من مزوّدين تانيين (زي "alloy" بتاعة OpenAI)،
 # فبنرفض أي حاجة مش شكل edge-tts ونرجع للافتراضي بدل ما نوقع الرندر كله.
@@ -62,16 +73,6 @@ def duration_of(path):
     return float(out.stdout.strip())
 
 
-def has_audio(path):
-    """هل الفيديو ده فيه مسار صوت أصلًا؟ أغلب لقطات Pexels بتيجي من غير صوت خالص."""
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "a",
-         "-show_entries", "stream=index", "-of", "csv=p=0", str(path)],
-        capture_output=True, text=True, check=True,
-    )
-    return bool(out.stdout.strip())
-
-
 def download(url, dest):
     print(f"+ download {url} -> {dest}", flush=True)
     req = urllib.request.Request(url, headers={"User-Agent": "render-worker/1.0"})
@@ -81,13 +82,13 @@ def download(url, dest):
 
 
 def fetch_sources(urls, outdir):
-    """ينزّل كل اللقطات مرة واحدة، ويرجّع مسارها ومدتها وهل فيها صوت."""
+    """ينزّل كل اللقطات مرة واحدة، ويرجّع مسارها ومدتها."""
     sources = []
     for i, url in enumerate(urls):
         raw = outdir / f"raw_{i:03d}.mp4"
         try:
             download(url, raw)
-            sources.append((raw, duration_of(raw), has_audio(raw)))
+            sources.append((raw, duration_of(raw)))
         except Exception as exc:
             print(f"! اللقطة دي مش راضية تنزل، هعدّيها: {exc}", flush=True)
 
@@ -206,7 +207,7 @@ def prepare_segments(sources, target_total, outdir):
     مختلف جوه اللقطة، فالمشهد ما يتكررش بنفس الشكل.
 
     القطع دي فيديو بس من غير صوت — صوت الخلفية بقى مسار منفصل
-    (build_ambience) بدل ما يتلزق مع كل قطعة، عشان لزق قطع فيها صوت
+    (build_music) بدل ما يتلزق مع كل قطعة، عشان لزق قطع فيها صوت
     وقطع من غيره مع بعض بـ "-c copy" كان بيطلّع Non-monotonic DTS
     (خلل حقيقي في التوقيت بيسمع كـ"طقطقة" في الصوت).
     """
@@ -214,7 +215,7 @@ def prepare_segments(sources, target_total, outdir):
     segments = []
 
     for n in range(needed):
-        src, src_duration, _ = sources[n % len(sources)]
+        src, src_duration = sources[n % len(sources)]
         lap = n // len(sources)
         start = min(lap * SEGMENT_SECONDS, max(0.0, src_duration - SEGMENT_SECONDS))
         out = outdir / f"seg_{n:03d}.mp4"
@@ -232,39 +233,54 @@ def prepare_segments(sources, target_total, outdir):
     return segments
 
 
-def build_ambience(sources, target_total, outfile):
+def _music_chord(freqs, outfile):
+    """أكورد واحد: نغماته الجيبية + طبقة مزاحة بسيطة، مع فيد ولفلتر دفء."""
+    inputs = []
+    for f in freqs:
+        inputs += ["-f", "lavfi", "-t", f"{MUSIC_CHORD_SECONDS}",
+                   "-i", f"sine=frequency={f}:sample_rate=44100"]
+        inputs += ["-f", "lavfi", "-t", f"{MUSIC_CHORD_SECONDS}",
+                   "-i", f"sine=frequency={f * 1.004:.3f}:sample_rate=44100"]
+    n = len(freqs) * 2
+    labels = "".join(f"[{i}:a]" for i in range(n))
+    filt = (f"amix=inputs={n}:duration=first:normalize=0,volume={1.0 / n:.3f},"
+            f"afade=t=in:st=0:d=0.5,afade=t=out:st={MUSIC_CHORD_SECONDS - 0.6}:d=0.6,"
+            f"lowpass=f=2200")
+    run(["ffmpeg", "-y", *inputs, "-filter_complex", f"{labels}{filt}[a]",
+         "-map", "[a]", "-c:a", "pcm_s16le", str(outfile)])
+    return outfile
+
+
+def build_music(target_total, outfile, outdir):
     """
-    مسار صوت خلفية واحد متصل يغطي الفيديو كله.
+    موسيقى خلفية متصلة تغطي الفيديو كله — بنولّدها بنفسنا بالكامل.
 
-    أغلب لقطات Pexels بتيجي من غير صوت خالص (جرّبنا فيديو حقيقي: ١١ من ١٢
-    لقطة كانت صامتة)، فالاعتماد على صوت كل قطعة لوحدها كان بيسيب الخلفية
-    ساكتة أغلب الوقت. بدل كده، بندوّر على أول لقطة فيها صوت حقيقي في
-    الدفعة كلها ونكرّره (loop) لحد ما يغطي مدة الفيديو. لو فعلًا مفيش ولا
-    لقطة واحدة فيها صوت، بنعمل أمبيانس صناعي هادي بدل السكوت التام.
+    بنبني لوب ١٢ ثانية (تتابع أكوردات Am–F–C–G) وبنكرّره لحد ما يغطي مدة
+    التعليق. توليدها محليًا معناه صفر مخاطرة حقوق نشر — ولا تراك خارجي ممكن
+    يجيب ضربة على القناة أو يوقّف الأرباح، وثابتة على كل الفيديوهات.
     """
-    real = next(((src, dur) for src, dur, has_a in sources if has_a), None)
+    parts = []
+    for i, freqs in enumerate(MUSIC_CHORDS):
+        parts.append(_music_chord(freqs, outdir / f"chord_{i}.wav"))
 
-    if real:
-        src, src_duration = real
-        extracted = outfile.with_suffix(".src.m4a")
-        run(["ffmpeg", "-y", "-i", str(src), "-vn",
-             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
-             str(extracted)])
-        loops = max(0, math.ceil(target_total / max(src_duration, 0.5)) - 1)
-        run(["ffmpeg", "-y", "-stream_loop", str(loops), "-i", str(extracted),
-             "-t", f"{target_total:.2f}", "-c:a", "aac", "-b:a", "128k",
-             str(outfile)])
-        print("    صوت الخلفية: من لقطة حقيقية", flush=True)
-    else:
-        # أمبيانس صناعي هادي (ضوضاء وردية مفلترة) بدل الصمت التام —
-        # حالة نادرة (كل لقطات الدفعة من غير صوت)، أفضل من فيديو ساكت.
-        run(["ffmpeg", "-y", "-f", "lavfi",
-             "-i", f"anoisesrc=color=pink:amplitude=0.05",
-             "-t", f"{target_total:.2f}",
-             "-af", "lowpass=f=800",
-             "-c:a", "aac", "-b:a", "128k", str(outfile)])
-        print("    صوت الخلفية: صناعي (مفيش ولا لقطة فيها صوت)", flush=True)
+    listing = outdir / "music_list.txt"
+    with open(listing, "w", encoding="utf-8") as f:
+        for p in parts:
+            f.write(f"file '{p.resolve()}'\n")
 
+    # مزيج النغمات بيطلع خافت (mean حوالي -36dB)، فبنرفعه لمستوى ثابت (+16dB)
+    # مع limiter يمنع أي تكسير — عشان بعد ما نخفّضه تحت الكلام يفضل مسموع.
+    loop = outdir / "music_loop.m4a"
+    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
+         "-af", "aecho=0.8:0.9:70:0.3,tremolo=f=0.15:d=0.3,lowpass=f=2600,"
+                "acompressor=threshold=-18dB:ratio=3,volume=16dB,alimiter=limit=0.9",
+         "-c:a", "aac", "-b:a", "160k", str(loop)])
+
+    loop_seconds = MUSIC_CHORD_SECONDS * len(MUSIC_CHORDS)
+    loops = max(0, math.ceil(target_total / loop_seconds) - 1)
+    run(["ffmpeg", "-y", "-stream_loop", str(loops), "-i", str(loop),
+         "-t", f"{target_total:.2f}", "-c:a", "aac", "-b:a", "160k", str(outfile)])
+    print("    موسيقى الخلفية: مولّدة محليًا (Am–F–C–G)", flush=True)
     return outfile
 
 
@@ -286,16 +302,25 @@ def concat_video(clips, target_total, outfile):
     return outfile
 
 
-def compose(video, ambience_audio, voice_audio, outfile):
+def compose(video, music_audio, voice_audio, outfile):
     """
-    التركيب النهائي: فيديو + صوت خلفية خافت + التعليق الصوتي فوقه.
+    التركيب النهائي: فيديو + موسيقى خلفية بتنخفض تحت الكلام + التعليق فوقه.
+
+    الموسيقى بتتخفض أوتوماتيك وقت ما الكلام بيشتغل (sidechaincompress) وبترجع
+    وقت السكتات، فالكلام دايمًا أوضح منها — بدل ما نسيب حجم ثابت بيزاحم الصوت.
     """
     total = duration_of(voice_audio)
     run([
-        "ffmpeg", "-y", "-i", str(video), "-i", str(ambience_audio), "-i", str(voice_audio),
+        "ffmpeg", "-y", "-i", str(video), "-i", str(music_audio), "-i", str(voice_audio),
         "-filter_complex",
-        f"[1:a]volume={AMBIENCE_VOLUME}[amb];"
-        f"[amb][2:a]amix=inputs=2:duration=longest:dropout_transition=0[aout]",
+        # نقسم الكلام لنسختين: واحدة تتحكّم في خفض الموسيقى، وواحدة تتحطّ فوقها
+        # normalize=0 مهم: من غيره amix بيقسم كل مدخل على 2 فيخفّض الكلام نفسه.
+        # الموسيقى مخفوضة ومكتومة تحت الكلام، وفي الآخر limiter يمنع أي تكسير.
+        f"[2:a]asplit=2[vkey][vmix];"
+        f"[1:a]volume={MUSIC_VOLUME}[bg];"
+        f"[bg][vkey]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=300[duck];"
+        f"[duck][vmix]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix];"
+        f"[mix]alimiter=limit=0.95[aout]",
         "-map", "0:v", "-map", "[aout]",
         "-t", f"{total:.2f}",
         "-c:v", "libx264", "-preset", "medium", "-crf", "21",
@@ -346,11 +371,13 @@ def main():
     segments = prepare_segments(sources, total, video_dir)
     silent = concat_video(segments, total, WORK / "silent.mp4")
 
-    print("==> بجهّز صوت الخلفية")
-    ambience = build_ambience(sources, total, WORK / "ambience.m4a")
+    print("==> بجهّز موسيقى الخلفية")
+    music_dir = WORK / "music"
+    music_dir.mkdir(exist_ok=True)
+    music = build_music(total, WORK / "music.m4a", music_dir)
 
     print("==> التركيب النهائي")
-    final = compose(silent, ambience, voice_audio, Path("output.mp4"))
+    final = compose(silent, music, voice_audio, Path("output.mp4"))
 
     meta = {
         "id": payload.get("id", ""),
