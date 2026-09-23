@@ -242,6 +242,65 @@ def motion_filter(index):
     )
 
 
+TEXT_CARD_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+
+def _drawtext_escape(s):
+    """بيهرّب الحروف اللي بتكسر فلتر drawtext (：و\\ و%) ويبدّل التنصيصة بعلامة يونيكود عشان متكسرش الـ text='...'."""
+    return (s or "").replace("\\", "\\\\").replace(":", "\\:").replace("%", "\\%").replace("'", "’")
+
+
+def build_text_card(text, subtext, color, outfile, duration):
+    """
+    كارت نصي بخلفية لون الفريق — بديل آمن عن لقطة جول حقيقية غير مرخّصة.
+
+    بيتعمل من غير زوم هنا؛ الزوم بيتحط بعدين لما prepare_segments يعامله
+    كأي مصدر فيديو عادي (نفس motion_filter اللي بيتحط على أي لقطة تانية)،
+    عشان منعملش زوم فوق زوم.
+    """
+    color_hex = color if color.startswith("0x") else "0x" + color.lstrip("#")
+    filters = [
+        f"drawtext=fontfile={TEXT_CARD_FONT}:text='{_drawtext_escape(text)}':"
+        f"fontcolor=white:fontsize=84:x=(w-text_w)/2:y=(h-text_h)/2-100:"
+        f"box=1:boxcolor=black@0.35:boxborderw=28"
+    ]
+    if subtext:
+        filters.append(
+            f"drawtext=fontfile={TEXT_CARD_FONT}:text='{_drawtext_escape(subtext)}':"
+            f"fontcolor=white:fontsize=44:x=(w-text_w)/2:y=(h-text_h)/2+60:"
+            f"box=1:boxcolor=black@0.35:boxborderw=18"
+        )
+    # لازم fps=FPS من الأول (مش الافتراضي 25 بتاع lavfi) عشان مدة الكارت
+    # تطلع مضبوطة لما prepare_segments يقصّه بعدين بـ -ss/-t زي أي فيديو عادي.
+    run(["ffmpeg", "-y", "-f", "lavfi",
+         "-i", f"color=c={color_hex}:s={W}x{H}:d={duration + 0.5:.2f}:r={FPS}",
+         "-vf", ",".join(filters), "-t", f"{duration + 0.5:.2f}",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+         "-pix_fmt", "yuv420p", str(outfile)])
+    return outfile
+
+
+def build_moment_cards(moments, outdir):
+    """
+    بيحوّل payload['moments'] (لحظات موثقة زي جول/رقم قياسي) لمصادر فيديو
+    جاهزة تتحط في نفس دورة اللقطات العادية — كارت لون بالنص، مش لقطة حقيقية.
+    """
+    cards = []
+    for i, m in enumerate(moments or []):
+        text = (m.get("text") or "").strip()
+        if not text:
+            continue
+        subtext = (m.get("subtext") or "").strip()
+        color = (m.get("color") or "1a1a2e").strip()
+        out = outdir / f"card_{i:03d}.mp4"
+        try:
+            build_text_card(text, subtext, color, out, SEGMENT_SECONDS)
+            cards.append((out, duration_of(out), False))
+        except subprocess.CalledProcessError as exc:
+            print(f"! كارت النص ده فشل، هعدّيه: {exc}", flush=True)
+    return cards
+
+
 def prepare_segments(sources, target_total, outdir):
     """
     يقطّع اللقطات قطع قصيرة بحركة، بدل لقطة واحدة طويلة ساكنة.
@@ -482,6 +541,11 @@ def main():
 
     print("==> بنزّل اللقطات")
     sources = fetch_sources(clips, video_dir)
+
+    moments = payload.get("moments") or []
+    if moments:
+        print(f"==> بعمل {len(moments)} كارت نص للحظات الموثقة (بديل آمن عن لقطة أصلية)")
+        sources.extend(build_moment_cards(moments, video_dir))
 
     print("==> بقطّع اللقطات بحركة")
     segments = prepare_segments(sources, total, video_dir)
