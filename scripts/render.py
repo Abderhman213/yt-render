@@ -518,8 +518,9 @@ def main():
 
     voice = normalize_voice(payload.get("voice", DEFAULT_VOICE))
     clips = payload.get("clips", [])
-    if not clips:
-        raise SystemExit("مفيش لقطات في الـ payload")
+    moments = payload.get("moments") or []
+    if not clips and not moments:
+        raise SystemExit("مفيش لقطات ولا مواقف نصية في الـ payload")
 
     WORK.mkdir(exist_ok=True)
     video_dir = WORK / "video"
@@ -542,7 +543,6 @@ def main():
     print("==> بنزّل اللقطات")
     sources = fetch_sources(clips, video_dir)
 
-    moments = payload.get("moments") or []
     if moments:
         print(f"==> بعمل {len(moments)} كارت نص للحظات الموثقة (بديل آمن عن لقطة أصلية)")
         sources.extend(build_moment_cards(moments, video_dir))
