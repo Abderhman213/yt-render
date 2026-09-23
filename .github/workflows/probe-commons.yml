@@ -1,0 +1,36 @@
+name: probe-commons
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: اختبار بحث Wikimedia Commons
+        run: |
+          set -e
+          Q='"Athletic Club Bilbao" OR "San Mames stadium" filetype:bitmap -intitle:svg -intitle:logo -intitle:crest -intitle:map'
+          curl -sS -G "https://commons.wikimedia.org/w/api.php" \
+            --data-urlencode "action=query" \
+            --data-urlencode "generator=search" \
+            --data-urlencode "gsrsearch=$Q" \
+            --data-urlencode "gsrnamespace=6" \
+            --data-urlencode "gsrlimit=10" \
+            --data-urlencode "prop=imageinfo" \
+            --data-urlencode "iiprop=url|mime|extmetadata" \
+            --data-urlencode "iiurlwidth=1280" \
+            --data-urlencode "format=json" \
+            --data-urlencode "origin=*" \
+            -o response.json -w "HTTP:%{http_code}\n"
+          printf '%s\n' \
+            'import json' \
+            "d = json.load(open('response.json'))" \
+            "pages = (d.get('query') or {}).get('pages') or {}" \
+            "print('page count:', len(pages))" \
+            'for p in list(pages.values())[:5]:' \
+            "    info = (p.get('imageinfo') or [{}])[0]" \
+            "    print('-', p.get('title'), '| mime:', info.get('mime'), '| thumburl:', info.get('thumburl'))" \
+            > check.py
+          python3 check.py
