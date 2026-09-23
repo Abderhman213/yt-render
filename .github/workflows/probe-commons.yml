@@ -1,0 +1,35 @@
+name: probe-commons
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: اختبار توفر فيديوهات حقيقية للملاعب على Commons
+        run: |
+          set -e
+          Q='"Santiago Bernabeu" OR "Camp Nou" filetype:video'
+          curl -sS -G "https://commons.wikimedia.org/w/api.php" \
+            --data-urlencode "action=query" \
+            --data-urlencode "generator=search" \
+            --data-urlencode "gsrsearch=$Q" \
+            --data-urlencode "gsrnamespace=6" \
+            --data-urlencode "gsrlimit=15" \
+            --data-urlencode "prop=imageinfo" \
+            --data-urlencode "iiprop=url|mime" \
+            --data-urlencode "format=json" \
+            --data-urlencode "origin=*" \
+            -o response.json -w "HTTP:%{http_code}\n"
+          printf '%s\n' \
+            'import json' \
+            "d = json.load(open('response.json'))" \
+            "pages = (d.get('query') or {}).get('pages') or {}" \
+            "print('page count:', len(pages))" \
+            'for p in list(pages.values())[:15]:' \
+            "    info = (p.get('imageinfo') or [{}])[0]" \
+            "    print('-', p.get('title'), '| mime:', info.get('mime'))" \
+            > check.py
+          python3 check.py
