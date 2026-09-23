@@ -95,22 +95,44 @@ def mean_db(path):
     return float(found.group(1)) if found else None
 
 
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
+
+
 def download(url, dest):
     print(f"+ download {url} -> {dest}", flush=True)
     req = urllib.request.Request(url, headers={"User-Agent": "render-worker/1.0"})
     with urllib.request.urlopen(req, timeout=120) as r, open(dest, "wb") as f:
+        content_type = r.headers.get("Content-Type", "")
         shutil.copyfileobj(r, f)
-    return dest
+    return content_type
+
+
+def _is_image_url(url, content_type):
+    if any(url.lower().split("?")[0].endswith(ext) for ext in IMAGE_EXTENSIONS):
+        return True
+    return content_type.startswith("image/")
 
 
 def fetch_sources(urls, outdir):
-    """ينزّل كل اللقطات مرة واحدة، ويرجّع مسارها ومدتها."""
+    """
+    ينزّل كل اللقطات مرة واحدة، ويرجّع مسارها ومدتها ونوعها (فيديو/صورة).
+
+    بعض القنوات (زي الإسبانية) بقت تجيب صور تاريخية حقيقية موثقة بدل
+    فيديوهات ستوك عشوائية — الصورة مالهاش "مدة" حقيقية، فبنديها مدة
+    وهمية كبيرة عشان منطق التدوير على المصادر (lap) يشتغل عادي، وبنعلّم
+    عليها is_image عشان prepare_segments يستخدم -loop 1 بدل -ss.
+    """
     sources = []
     for i, url in enumerate(urls):
-        raw = outdir / f"raw_{i:03d}.mp4"
+        # مبنعرفش النوع غير بعد التحميل (بعض الروابط من غير امتداد واضح)
+        tmp = outdir / f"raw_{i:03d}.tmp"
         try:
-            download(url, raw)
-            sources.append((raw, duration_of(raw)))
+            content_type = download(url, tmp)
+            is_image = _is_image_url(url, content_type)
+            raw = outdir / f"raw_{i:03d}{'.jpg' if is_image else '.mp4'}"
+            tmp.rename(raw)
+            dur = 9999.0 if is_image else duration_of(raw)
+            sources.append((raw, dur, is_image))
         except Exception as exc:
             print(f"! اللقطة دي مش راضية تنزل، هعدّيها: {exc}", flush=True)
 
@@ -237,15 +259,24 @@ def prepare_segments(sources, target_total, outdir):
     segments = []
 
     for n in range(needed):
-        src, src_duration = sources[n % len(sources)]
-        lap = n // len(sources)
-        start = min(lap * SEGMENT_SECONDS, max(0.0, src_duration - SEGMENT_SECONDS))
+        src, src_duration, is_image = sources[n % len(sources)]
         out = outdir / f"seg_{n:03d}.mp4"
         try:
-            run(["ffmpeg", "-y", "-ss", f"{start:.2f}", "-t", f"{SEGMENT_SECONDS:.2f}",
-                 "-i", str(src), "-an", "-vf", motion_filter(n),
-                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-                 "-pix_fmt", "yuv420p", str(out)])
+            if is_image:
+                # صورة ثابتة — من غير -ss (مفيش حاجة نتقدّم فيها)، بنلفّها
+                # لمدة القطعة وحركة الزوم (motion_filter) بتديها إحساس الحركة.
+                cmd = ["ffmpeg", "-y", "-loop", "1", "-i", str(src),
+                       "-t", f"{SEGMENT_SECONDS:.2f}", "-an", "-vf", motion_filter(n),
+                       "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                       "-pix_fmt", "yuv420p", str(out)]
+            else:
+                lap = n // len(sources)
+                start = min(lap * SEGMENT_SECONDS, max(0.0, src_duration - SEGMENT_SECONDS))
+                cmd = ["ffmpeg", "-y", "-ss", f"{start:.2f}", "-t", f"{SEGMENT_SECONDS:.2f}",
+                       "-i", str(src), "-an", "-vf", motion_filter(n),
+                       "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                       "-pix_fmt", "yuv420p", str(out)]
+            run(cmd)
             segments.append(out)
         except subprocess.CalledProcessError as exc:
             print(f"! القطعة دي فشلت، هعدّيها: {exc}", flush=True)
