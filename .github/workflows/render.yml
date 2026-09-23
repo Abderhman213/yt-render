@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       channel:
-        description: "القناة: سيبها فاضية للإنجليزية، أو es للإسبانية"
+        description: "القناة: سيبها فاضية للإنجليزية، أو es/bw/gen/states/college/crime"
         required: false
         default: ""
         type: string
@@ -57,21 +57,34 @@ jobs:
       - name: الرندر
         run: python scripts/render.py payload.json
 
+      - name: تحديد بادئة أسرار القناة
+        # كل قناة جديدة ليها بادئة أسرار مختلفة (YT_<PREFIX>_CLIENT_ID وهكذا)،
+        # ولازم تكون على مشروع Google Cloud تاني عشان حصة الرفع اليومية
+        # بتتحسب على المشروع مش على القناة.
+        id: chan
+        run: |
+          case "${{ inputs.channel }}" in
+            es) echo "prefix=YT_ES" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_ES" >> "$GITHUB_OUTPUT" ;;
+            bw) echo "prefix=YT_BW" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_BW" >> "$GITHUB_OUTPUT" ;;
+            gen) echo "prefix=YT_GEN" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_GEN" >> "$GITHUB_OUTPUT" ;;
+            states) echo "prefix=YT_STATES" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_STATES" >> "$GITHUB_OUTPUT" ;;
+            college) echo "prefix=YT_COLLEGE" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_COLLEGE" >> "$GITHUB_OUTPUT" ;;
+            crime) echo "prefix=YT_CRIME" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_CRIME" >> "$GITHUB_OUTPUT" ;;
+            *) echo "prefix=YT" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: الرفع على يوتيوب
         id: upload
-        # كل قناة ليها أسرارها. القناة الإسبانية أسرارها بنفس الأسماء + _ES،
-        # وكمان لازم تكون على مشروع Google Cloud تاني عشان حصة الرفع اليومية
-        # بتتحسب على المشروع مش على القناة.
         env:
-          YT_CLIENT_ID: ${{ secrets[inputs.channel == 'es' && 'YT_ES_CLIENT_ID' || 'YT_CLIENT_ID'] }}
-          YT_CLIENT_SECRET: ${{ secrets[inputs.channel == 'es' && 'YT_ES_CLIENT_SECRET' || 'YT_CLIENT_SECRET'] }}
-          YT_REFRESH_TOKEN: ${{ secrets[inputs.channel == 'es' && 'YT_ES_REFRESH_TOKEN' || 'YT_REFRESH_TOKEN'] }}
+          YT_CLIENT_ID: ${{ secrets[format('{0}_CLIENT_ID', steps.chan.outputs.prefix)] }}
+          YT_CLIENT_SECRET: ${{ secrets[format('{0}_CLIENT_SECRET', steps.chan.outputs.prefix)] }}
+          YT_REFRESH_TOKEN: ${{ secrets[format('{0}_REFRESH_TOKEN', steps.chan.outputs.prefix)] }}
         run: python scripts/upload.py
 
       - name: إبلاغ n8n بالنتيجة
         if: always()
         env:
-          N8N_CALLBACK_URL: ${{ secrets[inputs.channel == 'es' && 'N8N_ES_CALLBACK_URL' || 'N8N_CALLBACK_URL'] }}
+          N8N_CALLBACK_URL: ${{ secrets[format('{0}_CALLBACK_URL', steps.chan.outputs.n8n_prefix)] }}
         run: python scripts/callback.py
 
       - name: حفظ الفيديو لو الرفع فشل
