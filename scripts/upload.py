@@ -59,7 +59,9 @@ def main():
     tags_line = " ".join(
         h for h in (hashtag(t) for t in meta.get("tags", [])[:MAX_TITLE_HASHTAGS]) if h
     )
-    if meta["duration"] <= SHORTS_MAX_SECONDS and "#Shorts" not in tags_line:
+    # الفيديو الطويل الأفقي (format=long) عمره ما يكون Short، فمبنحطلوش #Shorts.
+    is_short = meta.get("format", "short") != "long" and meta["duration"] <= SHORTS_MAX_SECONDS
+    if is_short and "#Shorts" not in tags_line:
         tags_line = f"{tags_line} #Shorts".strip()
     if tags_line:
         description = f"{description}\n\n{tags_line}"

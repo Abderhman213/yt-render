@@ -25,7 +25,12 @@ import urllib.request
 from pathlib import Path
 
 WORK = Path("work")
-W, H = 1080, 1920
+# الشورتس رأسي 1080x1920. الفيديو الطويل الأسبوعي (payload.format = "long")
+# بيتحوّل لأفقي 1920x1080 في main() قبل أي رندر، عشان يتعرض كفيديو عادي
+# على يوتيوب مش كـ Short.
+SHORT_SIZE = (1080, 1920)
+LONG_SIZE = (1920, 1080)
+W, H = SHORT_SIZE
 FPS = 30
 SEGMENT_SECONDS = 2.5        # طول كل قطعة — قطع سريعة عشان الشورت ميبقاش ساكن
 ZOOM_MAX = 1.18              # أقصى تقريب، خفيف عشان ميبانش مصطنع
@@ -635,9 +640,19 @@ def compose(video, music_audio, voice_audio, outfile, sfx_audio=None):
 
 # ---------------------------------------------------------------- main
 
+def set_format(fmt):
+    """يظبط مقاس الفيديو حسب نوعه: short (رأسي) أو long (أفقي)."""
+    global W, H
+    W, H = LONG_SIZE if fmt == "long" else SHORT_SIZE
+    print(f"    الفورمات: {fmt or 'short'} — المقاس {W}x{H}", flush=True)
+
+
 def main():
     payload_path = Path(sys.argv[1] if len(sys.argv) > 1 else "payload.json")
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
+
+    fmt = (payload.get("format") or "short").strip().lower()
+    set_format(fmt)
 
     lines = [l for l in payload["lines"] if l and l.strip()]
     if not lines:
@@ -662,7 +677,9 @@ def main():
 
     # الشورتس اللي بتكمّل للآخر بتكون في حدود ٤٠ ثانية، و١٨٠ هي حد يوتيوب نفسه.
     # مبنوقفش الرندر، بس بنسيب أثر في اللوج عشان نعرف السكريبت طوّل.
-    if total > 180:
+    if fmt == "long":
+        print(f"    فيديو طويل أفقي — مدة {total/60:.1f} دقيقة")
+    elif total > 180:
         print("! التعليق أطول من ١٨٠ ثانية، ده مش Short خالص. قصّر السكريبت.")
     elif total > 50:
         print(f"! التعليق {total:.0f} ثانية — أطول من المستهدف (٣٠-٤٠). الاحتفاظ هيقل.")
@@ -707,6 +724,7 @@ def main():
         "description": payload.get("description", ""),
         "tags": payload.get("tags", []),
         "privacy": payload.get("privacy", "public"),
+        "format": fmt,
     }
     Path("output.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2),
                                    encoding="utf-8")
