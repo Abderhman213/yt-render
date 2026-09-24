@@ -301,6 +301,121 @@ def build_moment_cards(moments, outdir):
     return cards
 
 
+CTA_MIN_SEGMENTS = 6   # لازم فيديو 15 ثانية+ (6 قطع) عشان نضيف كسرة اللايك/الجرس/الاشتراك من غير ما ناكل حاجة مهمة
+
+# كل عنصر: (نص، نص فرعي، لون خلفية hex من غير #) — بترتيب اللقطات
+# (لايك، جرس، اشتراك) عشان يتزامن مع صوت كل واحد فيهم في build_cta_sfx.
+CTA_TEXTS = {
+    "es": [
+        ("DALE LIKE", "Ayuda más de lo que crees", "E02222"),
+        ("ACTIVA LA CAMPANA", "Para no perderte el próximo", "F2A900"),
+        ("SUSCRÍBETE YA", "Únete a miles más", "1F6FEB"),
+    ],
+    "en": [
+        ("HIT LIKE", "It helps more than you think", "E02222"),
+        ("TURN ON THE BELL", "Never miss the next one", "F2A900"),
+        ("SUBSCRIBE NOW", "Join thousands of others", "1F6FEB"),
+    ],
+}
+
+
+def _cta_texts(voice):
+    lang = (voice or "").split("-")[0].lower()
+    return CTA_TEXTS.get(lang, CTA_TEXTS["en"])
+
+
+def build_cta_segment(text, subtext, color, index, outfile):
+    """
+    قطعة "اعمل لايك/فعّل الجرس/اشترك" — نفس أسلوب build_text_card بس
+    بحركة زوم (motion_filter) محطوطة من الأول ومقصوصة بالظبط SEGMENT_SECONDS،
+    عشان تتحط مباشرة في قائمة القطع الجاهزة (segments) من غير مرحلة تقطيع تانية.
+    """
+    color_hex = color if color.startswith("0x") else "0x" + color.lstrip("#")
+    filters = [
+        motion_filter(index),
+        f"drawtext=fontfile={TEXT_CARD_FONT}:text='{_drawtext_escape(text)}':"
+        f"fontcolor=white:fontsize=88:x=(w-text_w)/2:y=(h-text_h)/2-90:"
+        f"box=1:boxcolor=black@0.35:boxborderw=28",
+        f"drawtext=fontfile={TEXT_CARD_FONT}:text='{_drawtext_escape(subtext)}':"
+        f"fontcolor=white:fontsize=42:x=(w-text_w)/2:y=(h-text_h)/2+70:"
+        f"box=1:boxcolor=black@0.35:boxborderw=18",
+    ]
+    run(["ffmpeg", "-y", "-f", "lavfi",
+         "-i", f"color=c={color_hex}:s={W}x{H}:d={SEGMENT_SECONDS + 0.3:.2f}:r={FPS}",
+         "-vf", ",".join(filters), "-t", f"{SEGMENT_SECONDS:.2f}",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+         "-pix_fmt", "yuv420p", str(outfile)])
+    return outfile
+
+
+def build_cta_segments(voice, start_index, outdir):
+    """بيطلّع 3 قطع (لايك/جرس/اشتراك) بلغة الفيديو، جاهزين يحلّوا محل 3 قطع في نص الفيديو."""
+    out = []
+    for i, (text, subtext, color) in enumerate(_cta_texts(voice)):
+        path = outdir / f"cta_{i:03d}.mp4"
+        build_cta_segment(text, subtext, color, start_index + i, path)
+        out.append(path)
+    return out
+
+
+def _sfx_like_pop(outfile):
+    """صوت "بوب" صاعد قصير — بيتزامن مع كارت اللايك."""
+    run(["ffmpeg", "-y", "-f", "lavfi",
+         "-i", "aevalsrc=0.6*sin(2*PI*(600+900*t)*t):d=0.16:s=44100",
+         "-af", "afade=t=in:st=0:d=0.02,afade=t=out:st=0.1:d=0.06",
+         "-c:a", "pcm_s16le", str(outfile)])
+    return outfile
+
+
+def _sfx_bell(outfile):
+    """رنة جرس (نغمتين متناغمتين + خفوت أسّي) — بتتزامن مع كارت الجرس."""
+    run(["ffmpeg", "-y",
+         "-f", "lavfi", "-i", "sine=frequency=1318.5:d=1.3:sample_rate=44100",
+         "-f", "lavfi", "-i", "sine=frequency=2637:d=1.3:sample_rate=44100",
+         "-filter_complex",
+         "[0:a]volume=0.7[a];[1:a]volume=0.3[b];[a][b]amix=inputs=2:duration=first:normalize=0,"
+         "afade=t=out:st=0.05:d=1.2:curve=exp",
+         "-c:a", "pcm_s16le", str(outfile)])
+    return outfile
+
+
+def _sfx_click(outfile):
+    """طقّة زرار قصيرة — بتتزامن مع كارت الاشتراك."""
+    run(["ffmpeg", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.06:c=white:sample_rate=44100",
+         "-af", "highpass=f=1500,lowpass=f=6000,afade=t=out:st=0:d=0.06",
+         "-c:a", "pcm_s16le", str(outfile)])
+    return outfile
+
+
+def build_cta_sfx(cta_start, total_duration, outdir):
+    """
+    تراك صوتي فيه بس ٣ أصوات قصيرة (بوب/جرس/طقّة) في توقيت ظهور كل كارت،
+    بيتحط فوق الموسيقى والتعليق في compose() من غير ما يقطع أي حاجة منهم.
+
+    apad بيخلّي كل مدخل غير محدود المدة عشان amix (duration=longest) يستناهم
+    كلهم لحد آخر واحد بيخلص؛ لازم -t هنا وإلا ffmpeg هيفضل شغال للأبد.
+    """
+    pop, bell, click = outdir / "sfx_pop.wav", outdir / "sfx_bell.wav", outdir / "sfx_click.wav"
+    _sfx_like_pop(pop)
+    _sfx_bell(bell)
+    _sfx_click(click)
+
+    pop_ms = int((cta_start + 0.35) * 1000)
+    bell_ms = int((cta_start + SEGMENT_SECONDS + 0.15) * 1000)
+    click_ms = int((cta_start + 2 * SEGMENT_SECONDS + 0.35) * 1000)
+
+    out = outdir / "cta_sfx.m4a"
+    run(["ffmpeg", "-y", "-i", str(pop), "-i", str(bell), "-i", str(click),
+         "-filter_complex",
+         f"[0:a]adelay={pop_ms}|{pop_ms},apad[a0];"
+         f"[1:a]adelay={bell_ms}|{bell_ms},apad[a1];"
+         f"[2:a]adelay={click_ms}|{click_ms},apad[a2];"
+         f"[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0[mix]",
+         "-map", "[mix]", "-t", f"{total_duration:.2f}",
+         "-c:a", "aac", "-b:a", "192k", str(out)])
+    return out
+
+
 def prepare_segments(sources, target_total, outdir):
     """
     يقطّع اللقطات قطع قصيرة بحركة، بدل لقطة واحدة طويلة ساكنة.
@@ -477,25 +592,37 @@ def concat_video(clips, target_total, outfile):
     return outfile
 
 
-def compose(video, music_audio, voice_audio, outfile):
+def compose(video, music_audio, voice_audio, outfile, sfx_audio=None):
     """
-    التركيب النهائي: فيديو + موسيقى خلفية بتنخفض تحت الكلام + التعليق فوقه.
+    التركيب النهائي: فيديو + موسيقى خلفية بتنخفض تحت الكلام + التعليق فوقه
+    (+ صوت كسرة اللايك/الجرس/الاشتراك لو موجودة).
 
     الموسيقى بتتخفض أوتوماتيك وقت ما الكلام بيشتغل (sidechaincompress) وبترجع
     وقت السكتات، فالكلام دايمًا أوضح منها — بدل ما نسيب حجم ثابت بيزاحم الصوت.
     """
     total = duration_of(voice_audio)
-    run([
-        "ffmpeg", "-y", "-i", str(video), "-i", str(music_audio), "-i", str(voice_audio),
-        "-filter_complex",
-        # نقسم الكلام لنسختين: واحدة تتحكّم في خفض الموسيقى، وواحدة تتحطّ فوقها
-        # normalize=0 مهم: من غيره amix بيقسم كل مدخل على 2 فيخفّض الكلام نفسه.
-        # الموسيقى مخفوضة ومكتومة تحت الكلام، وفي الآخر limiter يمنع أي تكسير.
+    inputs = ["-i", str(video), "-i", str(music_audio), "-i", str(voice_audio)]
+    # نقسم الكلام لنسختين: واحدة تتحكّم في خفض الموسيقى، وواحدة تتحطّ فوقها
+    # normalize=0 مهم: من غيره amix بيقسم كل مدخل على عدد المدخلات فيخفّض الكلام نفسه.
+    # الموسيقى مخفوضة ومكتومة تحت الكلام، وفي الآخر limiter يمنع أي تكسير.
+    graph = (
         f"[2:a]asplit=2[vkey][vmix];"
         f"[1:a]volume={MUSIC_VOLUME}[bg];"
         f"[bg][vkey]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=300[duck];"
-        f"[duck][vmix]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix];"
-        f"[mix]alimiter=limit=0.95[aout]",
+    )
+    if sfx_audio:
+        inputs += ["-i", str(sfx_audio)]
+        graph += (
+            f"[3:a]volume=0.55[sfx];"
+            f"[duck][vmix][sfx]amix=inputs=3:duration=first:dropout_transition=0:normalize=0[mix];"
+        )
+    else:
+        graph += f"[duck][vmix]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix];"
+    graph += "[mix]alimiter=limit=0.95[aout]"
+
+    run([
+        "ffmpeg", "-y", *inputs,
+        "-filter_complex", graph,
         "-map", "0:v", "-map", "[aout]",
         "-t", f"{total:.2f}",
         "-c:v", "libx264", "-preset", "medium", "-crf", "21",
@@ -549,6 +676,15 @@ def main():
 
     print("==> بقطّع اللقطات بحركة")
     segments = prepare_segments(sources, total, video_dir)
+
+    cta_sfx = None
+    if len(segments) >= CTA_MIN_SEGMENTS:
+        mid = len(segments) // 2
+        print("==> بحط كسرة لايك/جرس/اشتراك في نص الفيديو")
+        cta_segments = build_cta_segments(voice, mid, video_dir)
+        segments[mid:mid + len(cta_segments)] = cta_segments
+        cta_sfx = build_cta_sfx(mid * SEGMENT_SECONDS, total, video_dir)
+
     silent = concat_video(segments, total, WORK / "silent.mp4")
 
     print("==> بجهّز موسيقى الخلفية")
@@ -558,7 +694,7 @@ def main():
     music = build_music(total, WORK / "music.m4a", music_dir, mood=mood)
 
     print("==> التركيب النهائي")
-    final = compose(silent, music, voice_audio, Path("output.mp4"))
+    final = compose(silent, music, voice_audio, Path("output.mp4"), sfx_audio=cta_sfx)
 
     meta = {
         "id": payload.get("id", ""),
