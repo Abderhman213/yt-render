@@ -1,19 +1,25 @@
 ---
 name: yt-pipeline
-description: Operate and modify the yt-render YouTube Shorts pipeline (n8n → GitHub Actions render/upload) for the two channels "DID YOU KNOW THIS ?" (English) and "Pasión Liguera" (Spanish). Use whenever asked to change video content/topics, background music, voice, clip sourcing, upload behavior, or to debug a failed render/upload run in this repo.
+description: Operate and modify the yt-render YouTube Shorts pipeline (n8n → GitHub Actions render/upload) across its 7 channels (English, Spanish/"Pasión Liguera", and 5 niche channels: Brand Battles Daily, Boomer vs Zoomer, 50 States Showdown, Hate Week Daily, Cold File). Use whenever asked to change video content/topics, background music, voice, clip sourcing, upload/retry behavior, or to debug a failed render/upload run — and especially when a change needs to be applied consistently across multiple or all channel workflows at once.
 ---
 
 # yt-render pipeline
 
-Two YouTube Shorts channels share this one repo and one render codepath.
+7 YouTube Shorts channels share this one repo and one render codepath, each driven by its own pair of n8n workflows (main + callback).
 
 ## Architecture
 
-- `render.yml` (GitHub Actions) takes a `payload` JSON string + `channel` input (empty = English, `es` = Spanish). Secrets are indexed dynamically per channel (`YT_*` vs `YT_ES_*`), separate Actions concurrency group per channel.
-- n8n generates content (topic → script/metadata → Pexels clip search → render payload → dispatch `render.yml` → upload) and is the source of truth for prompts/topics/guardrails. n8n workflows:
+- `render.yml` (GitHub Actions) takes a `payload` JSON string + `channel` input. Secrets are indexed dynamically per channel (`YT_*` for English, `YT_<PREFIX>_*` for every other channel — see [[youtube-render-secret-prefixes]] in memory for the prefix map), separate Actions concurrency group per channel.
+- n8n generates content (topic → script/metadata → clip search → render payload → dispatch `render.yml` → upload) and is the source of truth for prompts/topics/guardrails. Each channel has one main workflow (idea → script → quality gate → render dispatch) and one separate callback workflow (webhook receiver for the render/upload result). Current main-workflow IDs:
   - English "المصنع — توليد ونشر": `QqhrZncobmYLYSKE`
   - Spanish "المصنع الإسباني — كورة": `TNpLJWN9Zowz70Ii`
-- `scripts/render.py` does the actual video assembly (voice, clips, music, captions). `scripts/upload.py` uploads to YouTube, honors `meta.get("privacy", "public")`.
+  - Brand Battles Daily (brand wars): `pZ40EDaTeNBzsRZq`
+  - Boomer vs Zoomer (generational wars): `ushexDYeFcxqPGDC`
+  - 50 States Showdown (state rivalries): `avXv5Wv8XABUbdAb`
+  - Hate Week Daily (college sports rivalries): `uCO00kcu4OSptZEP`
+  - Cold File (true crime): `SVqeV095qiTtaGm7`
+  - These IDs can go stale — confirm with `mcp__n8n__search_workflows` before trusting this list blindly.
+- `scripts/render.py` does the actual video assembly (voice, clips, music, captions). `scripts/upload.py` uploads to YouTube, honors `meta.get("privacy", "public")`, retries transient upload failures (see [[youtube-retry-on-failure]]).
 - `assets/music/` holds the real background-music tracks + `manifest.json` (filename → mood tags) + `SOURCES.md` (licenses). `.github/workflows/fetch-music.yml` is the reusable workflow that downloads new CC0/public-domain tracks from archive.org and commits them (the dev sandbox can't reach archive.org directly, so this must run on an Actions runner).
 
 ## Critical rules
@@ -47,8 +53,25 @@ Two YouTube Shorts channels share this one repo and one render codepath.
 
 - **English channel**: science/curiosity + debate-driving US topics. No partisan politics/elections/named politicians/religion/race-gender-sexuality-blame/medical misinfo/recent tragedies/conspiracy-as-fact.
 - **Spanish channel**: La Liga only, documented history — NOT match highlights (no footage rights). Favors documented controversies (referee scandals, brawls, federation sanctions, bitter transfers) alongside records — officially-documented only, never rumour or living-player-private-life claims.
+- **The 5 niche channels** each have their own topic identity (brand wars, generational culture wars, US state rivalries, college sports rivalries, true-crime mysteries) and their own clip-search-term plan tuned to that topic — check that channel's `اختيار الفكرة التالية`/idea-source node before assuming it shares English's or Spanish's exact prompt wording.
+- **No unlicensed broadcast/match footage, ever, on any channel** (goals, TV coverage, even short fan-recorded clips of televised moments) — this is a settled policy, not an open question, regardless of how the request is framed ("it's my channel", "it's only 2 seconds"). Rights belong to the broadcaster/league, unaffected by clip length or virality. Use real Wikimedia Commons clips/photos (freely licensed, topic-matched) first, a text stat-card fallback only when no matching Commons clip exists.
 - Shared script rules: 6-9 sentences (~30-40s), hook under 12 words, no sign-off, title under 60 chars, gate score ≥80.
 - Motion: 2.5s segments, 12 Pexels clips/video, randomized search page (1-4) and rotating search-query phrasings to avoid clip repetition.
+
+## Propagating one change across all channel workflows
+
+Requests like "make every channel retry instead of giving up" or "add X to all channels" are common at 7 channels and will keep coming as more channels get added. Don't hand-edit each workflow from scratch — that's slow and risks silently diverging one channel's behavior from the rest. Instead:
+
+1. **Read one workflow in full** (`get_workflow_details`) to get its exact node names and the jsCode of whichever Code node the change touches.
+2. **Read a second, structurally-different-sounding channel's version of the same node** and diff the two. Channels are not all identical: English/Spanish have unique per-channel logic (e.g. Spanish's `اختيار الفكرة التالية` has a hardcoded La Liga eligibility filter/`blockedIds`/`verifiedTopics` block that English doesn't). The 5 niche channels, by contrast, were built from one shared boilerplate and have so far matched **character-for-character** on this node — but confirm that before assuming it, don't extrapolate from one comparison to all five.
+3. Decide per workflow whether the same literal `update_workflow` operations apply as-is, or need their new lines **spliced into** that channel's existing customized code rather than pasting over it. Never overwrite a channel's unique logic to make the templating easier.
+4. Apply with `update_workflow`, **`publish_workflow` immediately after each one** (see Critical Rule #1 — this is the step it's easiest to forget when you're pushing through 7 workflows in a row).
+5. Verify structurally, not by executing: re-fetch the saved result and check the connections/parameters match your design. **Do not use `execute_workflow`/`test_workflow` to "test" a change on these production workflows** — they can really send Telegram messages, write real sheet rows, or render/upload a real video. Structural verification plus the fact that the pattern you used already works elsewhere in the same workflow is the right bar of confidence here, not a live run.
+6. Write one memory file summarizing the change, every workflow ID it touched, and why — the next session (or you, in a week) needs this list; don't make them re-derive it from `search_workflows`.
+
+## Cyclic retry loops in n8n (self-referencing node pattern)
+
+n8n graphs are normally DAGs, but a retry loop needs a counter that survives across loop iterations within one run. The trick: a Code node can read its **own prior execution** in the same run via `$("NodeName").first().json`, wrapped in try/catch (it throws on that node's first-ever execution in the run, since there's no prior data yet — catch that and default the counter to 1). Wire an IF node's true branch back to an earlier node to close the loop, and its false branch out to a "give up" notification. This is how the quality-gate retry (`عداد محاولة الموضوع` → attempt < 3 → loop back to re-read the queue) works — see [[youtube-retry-on-failure]] for the full wiring across all 7 channels.
 
 ## Workflow for making a change
 
