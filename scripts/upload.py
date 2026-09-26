@@ -10,16 +10,21 @@
 
 import json
 import os
+import random
 import re
 import sys
+import time
 from pathlib import Path
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 SHORTS_MAX_SECONDS = 180
 MAX_TITLE_HASHTAGS = 5
+MAX_UPLOAD_RETRIES = 5
+RETRIABLE_STATUS_CODES = {500, 502, 503, 504}
 
 
 def hashtag(tag):
@@ -42,6 +47,38 @@ def credentials():
         token_uri="https://oauth2.googleapis.com/token",
         scopes=["https://www.googleapis.com/auth/youtube.upload"],
     )
+
+
+def upload_with_retry(request):
+    """
+    بيرفع الفيديو تشنك تشنك، وبيعيد المحاولة لو حصل عطل مؤقت (شبكة أو
+    خطأ 5xx من يوتيوب) بدل ما يفشل التشغيلة كلها على أول عطل عابر.
+    resumable=True يخلي next_chunk() يكمل من نفس النقطة بعد كل محاولة.
+    """
+    response = None
+    retry = 0
+    while response is None:
+        try:
+            status, response = request.next_chunk()
+            if status:
+                print(f"... رفع {int(status.progress() * 100)}%", flush=True)
+        except HttpError as exc:
+            if exc.resp.status not in RETRIABLE_STATUS_CODES or retry >= MAX_UPLOAD_RETRIES:
+                raise
+            retry += 1
+            wait = min(2 ** retry + random.random(), 60)
+            print(f"! خطأ رفع مؤقت ({exc.resp.status})، محاولة {retry}/{MAX_UPLOAD_RETRIES} بعد {wait:.0f} ثانية",
+                  flush=True)
+            time.sleep(wait)
+        except (ConnectionError, TimeoutError, OSError) as exc:
+            if retry >= MAX_UPLOAD_RETRIES:
+                raise
+            retry += 1
+            wait = min(2 ** retry + random.random(), 60)
+            print(f"! انقطاع شبكة أثناء الرفع، محاولة {retry}/{MAX_UPLOAD_RETRIES} بعد {wait:.0f} ثانية: {exc}",
+                  flush=True)
+            time.sleep(wait)
+    return response
 
 
 def main():
@@ -89,11 +126,7 @@ def main():
         part="snippet,status", body=body, media_body=media
     )
 
-    response = None
-    while response is None:
-        status, response = request.next_chunk()
-        if status:
-            print(f"... رفع {int(status.progress() * 100)}%", flush=True)
+    response = upload_with_retry(request)
 
     video_id = response["id"]
     url = f"https://www.youtube.com/watch?v={video_id}"
