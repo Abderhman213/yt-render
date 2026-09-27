@@ -101,9 +101,9 @@ CHANNELS = {
         "name": "English",
         "label": "",
         "tz": NY,
-        "hours": [2, 12, 17, 22],
+        "hours": [7, 12, 17, 22],   # كان 2 بالليل — أمريكا كلها نايمة
         "long_day": 5,
-        "long_hour": 23,
+        "long_hour": 14,            # كان 11 بالليل — الطويل بيتشاف السبت الضهر
         "sheet_id": "1YWHU7FPtVv4_CgO6Fz9tx7DjscZSOe0T_sxzGEMiJ0E",
         "sheet_tab": "queue",
         "models": {"ideas": "gemini-3.5-flash-lite", "script": "gemini-3.5-flash-lite",
@@ -215,7 +215,7 @@ CHANNELS = {
     "college": _niche("college", "Hate Week Daily", "🏈🎓", "1QkZGzJ7rFDgN1y68P-4hsDB7HWMdO2Kt3kb4YUWvFBs",
                       [10, 15, 19, 21], 9, "collegefootball", "B91C1C"),
     "crime": _niche("crime", "Cold File", "🗂️🔎", "1DvfO3fCymAM7Li88NXxtJpmG8gEXyZTtmqvC-XBfC4s",
-                    [19, 21, 22, 23], 20, "unsolved", "991B1B",
+                    [15, 19, 21, 23], 20, "unsolved", "991B1B",
                     script_temp=0.6, mood_default="dark", strict_risk=True,
                     script_mood="dark", long_mood="dark", card="SHORT LINE",
                     ideas_extra=" راجع الأفكار لو حابب تمسح أي قضية مش مريحة.",
@@ -239,9 +239,9 @@ NEW_SHEETS = {'fc': '1nfEPxYbazXa1sHhctjMyxB0Vh54H9EpEFr8b-ju3G5I',
     'hist': '1wJE6EqT2IUP0jv8nRUXPRHtfwU_f5nPwRZWAApVvnyU'}
 
 for _key, _name, _emoji, _hours, _long, _tag, _color in [
-    ("fc", "Hot Take FC", "🔥⚽", [11, 16, 20], 10, "hottakefc", "DC2626"),
+    ("fc", "Hot Take FC", "🔥⚽", [8, 16, 20], 10, "hottakefc", "DC2626"),
     ("goat", "GOAT Court", "🐐⚖️", [12, 17, 21], 12, "goat", "CA8A04"),
-    ("ref", "Ref Robbery", "🟥📺", [10, 15, 19], 13, "var", "16A34A"),
+    ("ref", "Ref Robbery", "🟥📺", [8, 15, 19], 13, "var", "16A34A"),
     ("money", "Money Myths", "💸🧾", [8, 13, 18], 9, "moneymyths", "059669"),
     ("future", "Future Shock", "🤖⚡", [9, 14, 19], 14, "futureshock", "7C3AED"),
     ("hist", "History Hot Seat", "🏛️🔥", [10, 16, 21], 15, "history", "B45309"),
