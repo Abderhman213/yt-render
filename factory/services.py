@@ -255,6 +255,30 @@ def pexels_videos(query, orientation, per_page, page, size=None):
     return _retry(go, what="Pexels")
 
 
+def pixabay_videos(query, orientation, count):
+    """فيديوهات Pixabay. الـ API مبيفلترش بالاتجاه، فبنفلتر إحنا."""
+    def go():
+        r = requests.get("https://pixabay.com/api/videos/", timeout=TIMEOUT, params={
+            "key": os.environ["PIXABAY_API_KEY"], "q": query[:100], "per_page": 80,
+            "page": random.randint(1, 2), "safesearch": "true"})
+        r.raise_for_status()
+        return r.json().get("hits", [])
+    links = []
+    for hit in shuffle(_retry(go, what="Pixabay")):
+        files = [f for f in (hit.get("videos") or {}).values() if f.get("url")]
+        portrait = orientation == "portrait"
+        files = [f for f in files if ((f.get("height") or 0) >= (f.get("width") or 0)) == portrait]
+        if not files:
+            continue
+        target = 1080 if portrait else 1920
+        hd = sorted([f for f in files if min(f["width"], f["height"]) >= min(target, 1080)], key=lambda f: f["width"])
+        pick = (hd or sorted(files, key=lambda f: -f["width"]))[0]
+        links.append(pick["url"])
+        if len(links) >= count:
+            break
+    return links
+
+
 def commons_media(image_queries):
     params = {
         "action": "query", "generator": "search",

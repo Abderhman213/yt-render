@@ -49,9 +49,21 @@ def prompt(ch, name, **values):
     return text
 
 
+IMAGE_QUERIES_NOTE = (
+    '\n"image_queries": an array of 3 to 5 SPECIFIC English search terms for Wikimedia Commons '
+    "(a real photo/video archive). Name the real-world people, places, organisations, products, "
+    "events or years this script actually talks about, so the pictures genuinely illustrate the "
+    'narration. Never a vague mood word. Put one broad fallback term as the last item.'
+)
+
+
 def ask(ch, stage, text):
+    example = ch["examples"][stage]
+    if stage in ("script", "long") and '"image_queries"' not in example:
+        text = text.rstrip() + IMAGE_QUERIES_NOTE
+        example = example[:-1] + ',"image_queries":["specific subject","specific place or year","broad fallback"]}'
     return services.gemini_json(ch["models"][stage], ch["systems"][stage], text,
-                                ch["examples"][stage], ch["temps"][stage])
+                                example, ch["temps"][stage])
 
 
 def prefixed(ch, text):
@@ -252,9 +264,54 @@ class Run:
             query = random.choice(cfg["queries"])
         else:
             query = content.get("search_query", "")
-        videos = services.pexels_videos(query, cfg["orientation"], cfg["per_page"],
-                                        random.randint(1, cfg["pages"]), cfg.get("size"))
-        return pick_pexels(videos, cfg)
+        return self.gather(content, query, cfg, cfg["orientation"], cfg["count"])
+
+    def gather(self, content, query, pexels_cfg, orientation, count):
+        """
+        بيجمع اللقطات من التلات مصادر: Wikimedia Commons (صور/فيديو حقيقي للي
+        بيتحكي عنه)، و Pexels و Pixabay (لقطات عامة). أي مصدر يفشل أو مفيش
+        مفتاحه بيتعدّى، والباقيين يكمّلوا العدد.
+        """
+        pools = {}
+        commons_queries = content.get("image_queries") or ([query] if query else [])
+        commons_share = max(1, count // 3)
+
+        def safe(name, fn):
+            try:
+                pools[name] = fn()
+            except Exception as exc:  # noqa: BLE001
+                print(f"! {name} فشل: {exc}", flush=True)
+                pools[name] = []
+            print(f"    {name}: {len(pools[name])} لقطة", flush=True)
+
+        if commons_queries:
+            safe("commons", lambda: pick_commons(services.commons_media(commons_queries), count))
+        safe("pexels", lambda: pick_pexels(services.pexels_videos(
+            query, pexels_cfg.get("orientation", orientation), pexels_cfg["per_page"],
+            random.randint(1, pexels_cfg["pages"]), pexels_cfg.get("size")), {**pexels_cfg, "count": count}))
+        if os.environ.get("PIXABAY_API_KEY"):
+            safe("pixabay", lambda: services.pixabay_videos(query, orientation, count))
+
+        # الترتيب: حصة Commons الأول (الأكثر ارتباطًا بالقصة)، وبعدين Pexels و
+        # Pixabay بالتبادل، وأي نقص بيتكمّل من أي مصدر فاضل فيه لقطات.
+        clips, seen = [], set()
+
+        def take(name, n):
+            for link in pools.get(name, []):
+                if len(clips) >= count or n <= 0:
+                    return
+                if link not in seen:
+                    seen.add(link)
+                    clips.append(link)
+                    n -= 1
+
+        take("commons", commons_share)
+        stock = [x for pair in zip(pools.get("pexels", []), pools.get("pixabay", [])) for x in pair]
+        pools["mix"] = stock + pools.get("pexels", []) + pools.get("pixabay", [])
+        take("mix", count)
+        take("commons", count)
+        random.shuffle(clips)
+        return clips
 
     # ---------------------------------------------------------- long
 
@@ -268,13 +325,15 @@ class Run:
         print(f"==> فيديو طويل: {content.get('title')} ({len(content.get('lines') or [])} جملة)", flush=True)
 
         cfg = ch["long_clips"]
+        orientation = cfg.get("orientation", "landscape" if ch["long_format"] == "long" else "portrait")
         if cfg["source"] == "commons":
-            clips = pick_commons(services.commons_media(content.get("image_queries") or ["La Liga football"]),
-                                 cfg["count"])
+            # الإسباني: Commons هو الأساس، والمصادر العامة بكلمة كورة عامة
+            content.setdefault("image_queries", ["La Liga football"])
+            pex = {"per_page": 40, "pages": 3, "orientation": orientation, "pick": "hd"}
+            clips = self.gather(content, random.choice(["football stadium", "soccer match", "football fans cheering"]),
+                                pex, orientation, cfg["count"])
         else:
-            videos = services.pexels_videos(content.get("search_query", ""), cfg["orientation"],
-                                            cfg["per_page"], random.randint(1, cfg["pages"]))
-            clips = pick_pexels(videos, cfg)
+            clips = self.gather(content, content.get("search_query", ""), cfg, orientation, cfg["count"])
 
         row_id = f"long-{int(time.time() * 1000)}"
         payload = self.payload(row_id, content, clips, ch["long_moments"], ch["long_mood_default"])

@@ -71,6 +71,7 @@ assets/music/          ← حط هنا مقاطع الموسيقى
 |---|---|
 | `GEMINI_API_KEY` | مفتاح Google AI Studio (نفس اللي كان في n8n) |
 | `PEXELS_API_KEY` | مفتاح Pexels |
+| `PIXABAY_API_KEY` | مفتاح Pixabay (اختياري — من غيره بيكتفي بـ Pexels و Commons) |
 | `TELEGRAM_BOT_TOKEN` | توكن البوت من BotFather |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ملف JSON بتاع Service Account كامل. **لازم تعمل Share لكل شيت من السبعة لإيميل الـ service account (Editor).** |
 
@@ -144,7 +145,7 @@ assets/music/          ← حط هنا مقاطع الموسيقى
 
 1. تقرا جدول القناة. لو الأفكار قليلة، تولّد 20 فكرة بـ Gemini وتضيفها وتقف.
 2. تكتب السكريبت، وتعدّيه على بوابة الجودة (درجة 80 أو أكتر، ومن غير تكرار أو خطر).
-3. تجيب لقطات من Pexels (أو Wikimedia Commons للفيديو الطويل الإسباني).
+3. تجيب لقطات من تلات مصادر مع بعض: Wikimedia Commons (حوالي التلت، صور حقيقية للي بيتحكي عنه)، و Pexels و Pixabay (لقطات عامة). لو مصدر وقع، الباقيين بيكمّلوا.
 4. تشغّل `render.yml`، وفي آخره `factory/report.py` بيحدّث الصف ويبعت تليجرام.
 
 | الملف | فيه إيه |
