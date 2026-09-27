@@ -35,8 +35,8 @@ PROMPTS = Path(__file__).resolve().parent / "prompts"
 MOODS = ["upbeat", "calm", "dark", "epic", "electronic"]
 MAX_ATTEMPTS = 3
 MAX_IDEAS_PER_RUN = 3  # أقصى عدد أفكار تتجرّب في تشغيلة واحدة لو اللي قبلها اترفضت
-PASS_SCORE = 80    # أقل سكور ينفع يتنشر
-TARGET_SCORE = 90  # السكور اللي بنحاول نوصله قبل ما ننشر
+PASS_SCORE = 80    # الحد اللي بيتحسب "نجاح" في check() الافتراضي
+TARGET_SCORE = 90  # السكور اللي بنحاول نوصله؛ بعد 3 محاولات بننشر أحسن نسخة مهما كان سكورها
 
 
 def js_json(v):
@@ -65,7 +65,25 @@ def prompt(ch, name, **values):
         text = text.replace("{{" + k + "}}", str(v))
     if name in ("ideas", "script", "long"):
         text += CONTENT_POLICY
+    if name == "script":
+        text += SCRIPT_RUBRIC_NOTE
     return text
+
+
+# نفس معايير البوابة، بتتقال للكاتب من الأول عشان يكتب على المقاس ويجيب 90+.
+SCRIPT_RUBRIC_NOTE = """
+
+HOW THIS SCRIPT WILL BE SCORED — a strict reviewer scores it 0-100 and it must reach 90+:
+- Line 1 is the whole game: under 12 words, a bold claim, shocking number or direct challenge that stops
+  the scroll ON ITS OWN. Never open with "Did you know", "In this video", "Let's talk about" or a slow setup.
+- Every line adds a NEW specific fact, name, year or number, or a sharp take. Zero filler, zero generic lines.
+- Real original commentary: take a clear side and defend it. Opinions are welcome — label them as opinion.
+- Build tension: each line escalates toward a twist or verdict; the last narrative line is a punchy verdict or
+  a question that makes viewers argue in the comments.
+- 6 to 9 sentences total. Short, spoken, conversational sentences.
+- Every number and fact must be real and documented. No invented stats.
+- Never end with a sign-off ("thanks for watching", "follow for more") — the outro is added automatically.
+- It must not read like a template with the topic swapped in: specific details only this topic has."""
 
 
 IMAGE_QUERIES_NOTE = (
@@ -172,12 +190,16 @@ class Run:
                                       "التشغيلة الجاية هتكمّل من الفكرة اللي بعدهم."))
 
     def try_idea(self, nxt, published_titles):
-        """بيرجّع True لو الفكرة اتنشرت."""
+        """
+        بيرجّع True لو الفكرة اتنشرت. لحد 3 محاولات بنحاول نوصل TARGET_SCORE؛
+        لو ماوصلناش بننشر أحسن نسخة مهما كان سكورها. الفكرة بتترفض بس لو كل
+        النسخ مش صالحة للنشر أصلاً (عنوان مكرر أو سكريبت ناقص).
+        """
         ch = self.ch
         pick = {"published_titles": published_titles}
         print(f"==> الفكرة: #{nxt.get('id')} {nxt.get('title')}", flush=True)
         feedback, content, verdict, history = "", {}, {}, []
-        best = None  # أحسن نسخة عدّت الحد الأدنى (80) لو ماوصلناش للهدف (90)
+        best = None  # أحسن نسخة صالحة للنشر لحد دلوقتي
         for attempt in range(1, MAX_ATTEMPTS + 1):
             print(f"==> محاولة {attempt}/{MAX_ATTEMPTS}", flush=True)
             text = prompt(ch, "script", TOPIC=nxt.get("topic", ""), TITLE=nxt.get("title", ""),
@@ -195,9 +217,8 @@ class Run:
             if verdict["passed"]:
                 self.publish(nxt, content, verdict, attempt, history)
                 return True
-            floor = self.check(content, gate, pick["published_titles"], threshold=PASS_SCORE)
-            if floor["passed"] and (best is None or floor["score"] > best[1]["score"]):
-                best = (content, floor, attempt)
+            if verdict["publishable"] and (best is None or verdict["score"] > best[1]["score"]):
+                best = (content, verdict, attempt)
             feedback = revision_note(content, verdict)
 
         if best:
@@ -207,9 +228,8 @@ class Run:
             return True
 
         self.sheet_update(nxt["id"], {"score": verdict["score"], "status": "rejected", "notes": verdict["reason"]})
-        why = f"\nرأي البوابة: {verdict['why']}" if verdict["why"] and verdict["why"] not in verdict["reason"] else ""
-        self.notify(prefixed(ch, f"اترفض بعد {MAX_ATTEMPTS} محاولات ({' ← '.join(history)}): {content.get('title')}\n"
-                                 f"السبب: {verdict['reason']}{why}\nهجرّب الفكرة اللي بعدها دلوقتي."))
+        self.notify(prefixed(ch, f"الفكرة اتشالت بعد {MAX_ATTEMPTS} محاولات لأن مفيش نسخة تنفع تتنشر "
+                                 f"({verdict['reason']}): {content.get('title')}\nهجرّب الفكرة اللي بعدها دلوقتي."))
         return False
 
     def publish(self, nxt, content, verdict, attempt, history):
@@ -330,6 +350,7 @@ class Run:
         else:
             reason = "OK"
         return {"passed": passed, "reason": reason, "score": score,
+                "publishable": has_lines and not duplicate,
                 "why": str(gate.get("reasons") or "").strip()}
 
     def short_clips(self, content):
