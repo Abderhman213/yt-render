@@ -226,8 +226,15 @@ CHANNELS = {
 }
 
 # الست قنوات الجداد — مقفولة (enabled=False) لحد ما قناة يوتيوب ومفاتيح
-# YT_<PREFIX>_* والشيت بتاعها يجهزوا. لما تجهز: حط sheet_id وخلي enabled=True.
+# YT_<PREFIX>_* بتوعها يتضافوا في GitHub. لما تجهز: خلي enabled=True.
 # 3 شورتس يوميًا + فيديو طويل السبت، بتوقيت نيويورك.
+NEW_SHEETS = {'fc': '1nfEPxYbazXa1sHhctjMyxB0Vh54H9EpEFr8b-ju3G5I',
+    'goat': '1xcdZi9P8fv6h0zKmEo73ALDMwBLCwu6sowA7TH6Vmrk',
+    'ref': '1FZP-xjr0npUd43XTD7W77_XIlLlDKbGX1wyF-BlQvfo',
+    'money': '1OT72JmTHYZnW9p32I8USI2rHv5qDBYhzUy7yVf3nHSM',
+    'future': '1BW7hU58OpsHo7RyHccfbLtmqojMZzFoE1EY0alEZrTA',
+    'hist': '1wJE6EqT2IUP0jv8nRUXPRHtfwU_f5nPwRZWAApVvnyU'}
+
 for _key, _name, _emoji, _hours, _long, _tag, _color in [
     ("fc", "Hot Take FC", "🔥⚽", [11, 16, 20], 10, "hottakefc", "DC2626"),
     ("goat", "GOAT Court", "🐐⚖️", [12, 17, 21], 12, "goat", "CA8A04"),
@@ -236,7 +243,8 @@ for _key, _name, _emoji, _hours, _long, _tag, _color in [
     ("future", "Future Shock", "🤖⚡", [9, 14, 19], 14, "futureshock", "7C3AED"),
     ("hist", "History Hot Seat", "🏛️🔥", [10, 16, 21], 15, "history", "B45309"),
 ]:
-    CHANNELS[_key] = _niche(_key, _name, _emoji, "", _hours, _long, _tag, _color)
+    CHANNELS[_key] = _niche(_key, _name, _emoji, NEW_SHEETS[_key], _hours, _long, _tag, _color)
+    CHANNELS[_key]["sheet_tab"] = None  # أول تاب في الشيت
     CHANNELS[_key]["enabled"] = False
 
 # الـ Cold File كان مثال الأفكار بتاعه بيقول "teases the mystery" بدل "teases the answer".

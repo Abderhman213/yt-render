@@ -80,6 +80,9 @@ class Sheet:
         return f"https://sheets.googleapis.com/v4/spreadsheets/{self.sheet_id}/values/{suffix}"
 
     def _range(self, a1=""):
+        if not self.tab:
+            # من غير اسم تاب: Google بيستخدم أول تاب في الشيت
+            return urllib.parse.quote(a1 or "A:ZZ", safe="")
         name = "'" + self.tab.replace("'", "''") + "'"
         return urllib.parse.quote(name + ("!" + a1 if a1 else ""), safe="")
 
