@@ -42,10 +42,27 @@ def js_json(v):
     return json.dumps(v, ensure_ascii=False, separators=(",", ":"))
 
 
+# سياسة المحتوى الحالية (بطلب صاحب القنوات): جدل أعلى، والسياسة والدين
+# والمواضيع الحساسة مسموحة. بتتحط في آخر برومبتات الأفكار والسكريبت والفيديو
+# الطويل، فبتغلب أي قيود أقدم مكتوبة فوق في ملفات البرومبت.
+CONTENT_POLICY = """
+
+CONTENT POLICY UPDATE — this overrides every earlier HARD LIMITS / restriction line in this prompt:
+- Go for MAXIMUM debate. Strong, polarising takes that split the audience are wanted.
+- Politics is allowed: elections, parties, named politicians, government decisions, red-vs-blue, left-vs-right.
+- Religion, culture wars, controversial social topics, dark or disturbing history and crime are all allowed.
+- Only three rules remain: (1) facts and numbers must be real and documented — present opinions as opinions;
+  (2) never state an unproven accusation against a named living person as fact (say "accused", "alleged",
+  or "critics say"); (3) no hate or attacks on people for their race, ethnicity, religion, gender or sexuality —
+  debating ideas, policies and institutions is fine."""
+
+
 def prompt(ch, name, **values):
     text = (PROMPTS / ch["key"] / f"{name}.txt").read_text(encoding="utf-8")
     for k, v in values.items():
         text = text.replace("{{" + k + "}}", str(v))
+    if name in ("ideas", "script", "long"):
+        text += CONTENT_POLICY
     return text
 
 
