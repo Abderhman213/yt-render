@@ -207,6 +207,10 @@ class Run:
         ch = self.ch
         clips = self.short_clips(content)
         payload = self.payload(nxt["id"], content, clips, ch["short_moments"], ch["short_mood_default"])
+        long_url = self.latest_long_url()
+        if long_url:
+            label = "▶ La historia completa:" if ch["key"] == "es" else "▶ Watch the full deep-dive:"
+            payload["description"] = f"{payload.get('description') or ''}\n\n{label} {long_url}".strip()
         self.dispatch(payload)
         self.sheet_update(nxt["id"], {"status": "rendering", "title": content.get("title", ""),
                                       "score": verdict["score"]})
@@ -250,7 +254,15 @@ class Run:
     def generate_ideas(self, pick):
         ch = self.ch
         print("==> الطابور محتاج أفكار — بولّد 20 فكرة جديدة", flush=True)
-        data = ask(ch, "ideas", prompt(ch, "ideas", PUBLISHED_TITLES=js_json(pick["published_titles"])))
+        text = prompt(ch, "ideas", PUBLISHED_TITLES=js_json(pick["published_titles"]))
+        top = self.top_videos(5)
+        if top:
+            listing = "\n".join(f"- {v['title']} ({v['views']} views)" for v in top)
+            text += ("\n\nWHAT IS WORKING ON THIS CHANNEL: these recent videos got the most views. Lean "
+                     "the new batch toward the same kind of angle, hook and debate (new subjects, never "
+                     "repeats of these):\n" + listing)
+            print(f"    أفكار مستوحاة من أعلى {len(top)} فيديوهات", flush=True)
+        data = ask(ch, "ideas", text)
         topics = data.get("topics") or (data.get("output") or {}).get("topics") or []
         rows = []
         for i, t in enumerate(topics):
@@ -402,6 +414,23 @@ class Run:
         self.notify(ch["messages"]["long_started"].format(title=content.get("title")))
 
     # ---------------------------------------------------------- payload
+
+    def top_videos(self, n):
+        """أعلى فيديوهات القناة مشاهدةً (من الشيت + YouTube API لو مفتاحه موجود)."""
+        try:
+            ids = [r.get("video_id") for r in self.rows() if r.get("video_id")]
+            stats = services.youtube_stats(ids)
+        except Exception as exc:  # noqa: BLE001
+            print(f"! مقدرتش أجيب إحصائيات يوتيوب: {exc}", flush=True)
+            return []
+        return sorted(stats.values(), key=lambda v: -v["views"])[:n]
+
+    def latest_long_url(self):
+        """رابط آخر فيديو طويل (السبت) اترفع على القناة، عشان يتحط في وصف الشورتس."""
+        longs = [r for r in self.rows() if str(r.get("id", "")).startswith("long-")
+                 and str(r.get("status", "")).lower() == "ok" and r.get("video_url")]
+        longs.sort(key=lambda r: str(r.get("id")))
+        return longs[-1]["video_url"] if longs else ""
 
     def payload(self, row_id, content, clips, max_moments, mood_default):
         ch = self.ch

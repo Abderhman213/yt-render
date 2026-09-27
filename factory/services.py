@@ -298,6 +298,35 @@ def commons_media(image_queries):
     return _retry(go, what="Wikimedia Commons")
 
 
+# ------------------------------------------------------------ YouTube (قراءة بس)
+
+def youtube_stats(video_ids):
+    """
+    مشاهدات/لايكات/كومنتات فيديوهات عامة بمفتاح API عادي (YOUTUBE_API_KEY).
+    الفيديوهات الـ private مابترجعش. بيرجّع {} لو المفتاح مش موجود.
+    """
+    key = os.environ.get("YOUTUBE_API_KEY", "").strip()
+    ids = [v for v in dict.fromkeys(video_ids) if v]
+    if not key or not ids:
+        return {}
+    out = {}
+    for i in range(0, len(ids), 50):
+        def go(chunk=ids[i:i + 50]):
+            r = requests.get("https://www.googleapis.com/youtube/v3/videos", timeout=TIMEOUT, params={
+                "part": "statistics,snippet", "id": ",".join(chunk), "key": key})
+            r.raise_for_status()
+            return r.json().get("items", [])
+        for item in _retry(go, what="YouTube stats"):
+            st = item.get("statistics") or {}
+            out[item["id"]] = {
+                "views": int(st.get("viewCount", 0)), "likes": int(st.get("likeCount", 0)),
+                "comments": int(st.get("commentCount", 0)),
+                "title": (item.get("snippet") or {}).get("title", ""),
+                "published": (item.get("snippet") or {}).get("publishedAt", ""),
+            }
+    return out
+
+
 # ------------------------------------------------------------ GitHub
 
 def dispatch_render(payload, render_channel):
