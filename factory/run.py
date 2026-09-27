@@ -34,6 +34,7 @@ from factory.channels import CHANNELS  # noqa: E402
 PROMPTS = Path(__file__).resolve().parent / "prompts"
 MOODS = ["upbeat", "calm", "dark", "epic", "electronic"]
 MAX_ATTEMPTS = 3
+MAX_IDEAS_PER_RUN = 3  # أقصى عدد أفكار تتجرّب في تشغيلة واحدة لو اللي قبلها اترفضت
 PASS_SCORE = 80    # أقل سكور ينفع يتنشر
 TARGET_SCORE = 90  # السكور اللي بنحاول نوصله قبل ما ننشر
 
@@ -140,17 +141,31 @@ class Run:
 
     def short(self):
         """
-        فكرة واحدة لكل تشغيلة: لو السكور أقل من 80، السكريبت بيتكتب تاني بناءً
-        على ملاحظات البوابة (لحد 3 مرات) وأول نسخة تعدّي بتتنشر. لو التلاتة
-        فشلوا، الفكرة بتتعلّم rejected والتشغيلة الجاية تاخد اللي بعدها.
+        كل فكرة بتاخد لحد 3 محاولات (السكريبت بيتكتب تاني بناءً على ملاحظات
+        البوابة). لو الفكرة اترفضت، نفس التشغيلة بتنتقل للفكرة اللي بعدها على
+        طول — لحد MAX_IDEAS_PER_RUN أفكار — لحد ما فيديو يتنشر.
         """
-        ch = self.ch
-        pick = self.pick_next(self.rows())
-        if pick["need_topics"]:
-            self.generate_ideas(pick)
-            return
+        tried, generated = set(), False
+        while len(tried) < MAX_IDEAS_PER_RUN:
+            rows = [r for r in self.rows() if str(r.get("id")) not in tried]
+            pick = self.pick_next(rows)
+            if pick["need_topics"]:
+                if generated:
+                    return
+                self.generate_ideas(pick)
+                generated = True
+                continue
+            nxt = pick["next"]
+            tried.add(str(nxt.get("id")))
+            if self.try_idea(nxt, pick["published_titles"]):
+                return
+        self.notify(prefixed(self.ch, f"اترفضت {len(tried)} أفكار ورا بعض في التشغيلة دي. "
+                                      "التشغيلة الجاية هتكمّل من الفكرة اللي بعدهم."))
 
-        nxt = pick["next"]
+    def try_idea(self, nxt, published_titles):
+        """بيرجّع True لو الفكرة اتنشرت."""
+        ch = self.ch
+        pick = {"published_titles": published_titles}
         print(f"==> الفكرة: #{nxt.get('id')} {nxt.get('title')}", flush=True)
         feedback, content, verdict, history = "", {}, {}, []
         best = None  # أحسن نسخة عدّت الحد الأدنى (80) لو ماوصلناش للهدف (90)
@@ -170,7 +185,7 @@ class Run:
 
             if verdict["passed"]:
                 self.publish(nxt, content, verdict, attempt, history)
-                return
+                return True
             floor = self.check(content, gate, pick["published_titles"], threshold=PASS_SCORE)
             if floor["passed"] and (best is None or floor["score"] > best[1]["score"]):
                 best = (content, floor, attempt)
@@ -180,12 +195,13 @@ class Run:
             content, verdict, attempt = best
             print(f"==> ماوصلناش {TARGET_SCORE}، هننشر أحسن نسخة ({verdict['score']})", flush=True)
             self.publish(nxt, content, verdict, attempt, history)
-            return
+            return True
 
         self.sheet_update(nxt["id"], {"score": verdict["score"], "status": "rejected", "notes": verdict["reason"]})
         why = f"\nرأي البوابة: {verdict['why']}" if verdict["why"] and verdict["why"] not in verdict["reason"] else ""
         self.notify(prefixed(ch, f"اترفض بعد {MAX_ATTEMPTS} محاولات ({' ← '.join(history)}): {content.get('title')}\n"
-                                 f"السبب: {verdict['reason']}{why}\nالتشغيلة الجاية هتاخد الفكرة اللي بعدها."))
+                                 f"السبب: {verdict['reason']}{why}\nهجرّب الفكرة اللي بعدها دلوقتي."))
+        return False
 
     def publish(self, nxt, content, verdict, attempt, history):
         ch = self.ch
