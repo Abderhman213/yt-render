@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the channel "History Hot Seat" (US audience), for the weekly Saturday deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: Controversial questions about European and American history: was Napoleon a hero or a villain, the worst Roman emperor, who really ruled the seas, famous leaders who are overrated or underrated, turning points that could have gone the other way. Every idea puts a historical figure or decision in the hot seat and makes viewers take a side.
+Topic: put one historical figure or decision on full trial: the case for, the case against, the key dates and numbers, and a final verdict. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: rivalry and debate, with dry humor; a documentary voiceover, not a list.
+FACTS: only real, documented, verifiable events and numbers. Never invent a number or detail.
+HARD LIMITS: Only documented history from reputable sources, with real dates and numbers. Never glorify or deny atrocities, genocide or slavery; no content that attacks any modern nationality, race or religion; no modern partisan politics or comparisons with living politicians. Present debated interpretations as debated.
+Structure: a hook under 15 words that frames why this matters; then escalate through a few natural chapters (no labels); close with a punchy verdict or comparison. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the overall subject (describe the scene, never a brand/team/person). Pexels stock footage that matches the actual subject: e.g. 'ancient ruins', 'old map', 'castle walls', 'tall ship sea', 'museum statue', 'candle old book', 'battlefield fog', 'roman columns'.
+"moments": 2 to 4 striking stats/verdicts for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "B45309"}.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven. "description" 2-4 sentences. "tags" include "history".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.

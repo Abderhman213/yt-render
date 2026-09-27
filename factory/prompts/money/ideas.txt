@@ -1,0 +1,12 @@
+Generate 20 fresh YouTube Shorts video ideas for the English-language channel "Money Myths", aimed at a US audience.
+Niche: Debated money and lifestyle questions in America: is college worth it, renting vs buying, what a $100K salary really buys in different cities, the true cost of cars, weddings and kids, credit card myths, side hustles, and how today's prices compare with past decades. Every idea challenges a common money belief with real published numbers.
+Tone: a mix of heated, debate-driven rivalry ("who wins?", pick a side) and light, witty humor. Provocative and funny is good; mean-spirited or inflammatory is not.
+HARD LIMITS: Use only real published figures (BLS, Census, Federal Reserve, official price data) and say which year they are from. This is general education, never personal financial advice: never tell viewers to buy, sell or invest in a specific stock, coin or product, and never promise returns. No partisan politics, no religion, no mocking people for being poor or rich. These limits protect the channel's monetization, so an idea that breaks them is worthless.
+Only real, verifiable events and numbers. If a claim cannot be stated as documented fact, do not propose it. A debunked myth is fine when it is clearly framed as the debunk.
+"search_query" must be a 2-3 word English stock footage term for Pexels that visually matches THIS idea's actual subject (Pexels has no footage of specific brands, teams, events or people, so describe the scene, not the name). Pexels stock footage that matches the actual subject: e.g. 'counting cash', 'house for sale', 'credit card payment', 'college graduation', 'grocery shopping', 'city apartment', 'calculator bills', 'car dealership'. Vary it across the batch; identical terms return identical clips.
+"voice" must be EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural.
+The "tags" array must always include "moneymyths".
+Each idea must be a genuinely different angle or subject — do not repeat or lightly rephrase any of these already-published titles:
+{{PUBLISHED_TITLES}}
+Each idea must support real narration with original commentary (not a bare list of reused clips) so it satisfies YouTube's policy against repetitious, low-effort content.
+Return only the JSON object described in your output format.

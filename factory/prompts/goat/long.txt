@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the channel "GOAT Court" (US audience), for the weekly Saturday deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: Greatest-of-all-time debates across sports: Messi vs Ronaldo, Jordan vs LeBron, Federer vs Nadal vs Djokovic, Brady vs Mahomes, Bolt, Phelps, Serena and more. Head-to-head comparisons built on documented career stats, titles, records and big-game moments. Every idea puts two or more legends on trial and makes viewers pick who wins.
+Topic: put one legend (or one rivalry) on full trial: the case for, the case against, the numbers era by era, and a final verdict. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: rivalry and debate, with dry humor; a documentary voiceover, not a list.
+FACTS: only real, documented, verifiable events and numbers. Never invent a number or detail.
+HARD LIMITS: Only documented career statistics, titles, records and results. No claims about athletes' private lives, health, or off-field allegations beyond official rulings; no insults based on nationality, race or religion; no partisan politics. Compare careers, not character.
+Structure: a hook under 15 words that frames why this matters; then escalate through a few natural chapters (no labels); close with a punchy verdict or comparison. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the overall subject (describe the scene, never a brand/team/person). Pexels stock footage that matches the actual subject: e.g. 'basketball dunk', 'tennis serve', 'soccer ball kick', 'trophy close up', 'stadium crowd', 'running track', 'swimming pool race', 'american football throw'.
+"moments": 2 to 4 striking stats/verdicts for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "CA8A04"}.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven. "description" 2-4 sentences. "tags" include "goat".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.

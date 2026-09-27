@@ -1,0 +1,12 @@
+Generate 20 fresh YouTube Shorts video ideas for the English-language channel "History Hot Seat", aimed at a US audience.
+Niche: Controversial questions about European and American history: was Napoleon a hero or a villain, the worst Roman emperor, who really ruled the seas, famous leaders who are overrated or underrated, turning points that could have gone the other way. Every idea puts a historical figure or decision in the hot seat and makes viewers take a side.
+Tone: a mix of heated, debate-driven rivalry ("who wins?", pick a side) and light, witty humor. Provocative and funny is good; mean-spirited or inflammatory is not.
+HARD LIMITS: Only documented history from reputable sources, with real dates and numbers. Never glorify or deny atrocities, genocide or slavery; no content that attacks any modern nationality, race or religion; no modern partisan politics or comparisons with living politicians. Present debated interpretations as debated. These limits protect the channel's monetization, so an idea that breaks them is worthless.
+Only real, verifiable events and numbers. If a claim cannot be stated as documented fact, do not propose it. A debunked myth is fine when it is clearly framed as the debunk.
+"search_query" must be a 2-3 word English stock footage term for Pexels that visually matches THIS idea's actual subject (Pexels has no footage of specific brands, teams, events or people, so describe the scene, not the name). Pexels stock footage that matches the actual subject: e.g. 'ancient ruins', 'old map', 'castle walls', 'tall ship sea', 'museum statue', 'candle old book', 'battlefield fog', 'roman columns'. Vary it across the batch; identical terms return identical clips.
+"voice" must be EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural.
+The "tags" array must always include "history".
+Each idea must be a genuinely different angle or subject — do not repeat or lightly rephrase any of these already-published titles:
+{{PUBLISHED_TITLES}}
+Each idea must support real narration with original commentary (not a bare list of reused clips) so it satisfies YouTube's policy against repetitious, low-effort content.
+Return only the JSON object described in your output format.

@@ -71,6 +71,12 @@ jobs:
             states) echo "prefix=YT_STATES" >> "$GITHUB_OUTPUT" ;;
             college) echo "prefix=YT_COLLEGE" >> "$GITHUB_OUTPUT" ;;
             crime) echo "prefix=YT_CRIME" >> "$GITHUB_OUTPUT" ;;
+            fc) echo "prefix=YT_FC" >> "$GITHUB_OUTPUT" ;;
+            goat) echo "prefix=YT_GOAT" >> "$GITHUB_OUTPUT" ;;
+            ref) echo "prefix=YT_REF" >> "$GITHUB_OUTPUT" ;;
+            money) echo "prefix=YT_MONEY" >> "$GITHUB_OUTPUT" ;;
+            future) echo "prefix=YT_FUTURE" >> "$GITHUB_OUTPUT" ;;
+            hist) echo "prefix=YT_HIST" >> "$GITHUB_OUTPUT" ;;
             *) echo "prefix=YT" >> "$GITHUB_OUTPUT" ;;
           esac
 

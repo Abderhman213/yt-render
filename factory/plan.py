@@ -31,6 +31,8 @@ CRON_MINUTE = 7
 def due(now_utc):
     jobs = []
     for key, ch in CHANNELS.items():
+        if not ch.get("enabled", True):
+            continue  # قناة لسه مش جاهزة (مفاتيح يوتيوب أو الشيت ناقصين)
         local = (now_utc - timedelta(minutes=CRON_MINUTE)).astimezone(ZoneInfo(ch["tz"]))
         if local.hour in ch["hours"]:
             jobs.append({"channel": key, "mode": "short"})

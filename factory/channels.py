@@ -225,6 +225,20 @@ CHANNELS = {
                     long_system='You are a careful, fact-checked long-form true-mystery documentary scriptwriter for the US English channel "Cold File". You always return strictly valid JSON matching the requested schema, with no extra commentary.'),
 }
 
+# الست قنوات الجداد — مقفولة (enabled=False) لحد ما قناة يوتيوب ومفاتيح
+# YT_<PREFIX>_* والشيت بتاعها يجهزوا. لما تجهز: حط sheet_id وخلي enabled=True.
+# 3 شورتس يوميًا + فيديو طويل السبت، بتوقيت نيويورك.
+for _key, _name, _emoji, _hours, _long, _tag, _color in [
+    ("fc", "Hot Take FC", "🔥⚽", [11, 16, 20], 10, "hottakefc", "DC2626"),
+    ("goat", "GOAT Court", "🐐⚖️", [12, 17, 21], 12, "goat", "CA8A04"),
+    ("ref", "Ref Robbery", "🟥📺", [10, 15, 19], 13, "var", "16A34A"),
+    ("money", "Money Myths", "💸🧾", [8, 13, 18], 9, "moneymyths", "059669"),
+    ("future", "Future Shock", "🤖⚡", [9, 14, 19], 14, "futureshock", "7C3AED"),
+    ("hist", "History Hot Seat", "🏛️🔥", [10, 16, 21], 15, "history", "B45309"),
+]:
+    CHANNELS[_key] = _niche(_key, _name, _emoji, "", _hours, _long, _tag, _color)
+    CHANNELS[_key]["enabled"] = False
+
 # الـ Cold File كان مثال الأفكار بتاعه بيقول "teases the mystery" بدل "teases the answer".
 CHANNELS["crime"]["examples"]["ideas"] = CHANNELS["crime"]["examples"]["ideas"].replace(
     "teases the answer without giving it away", "teases the mystery without giving it away")

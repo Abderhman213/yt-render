@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the channel "Ref Robbery" (US audience), for the weekly Saturday deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: The most debated refereeing and VAR decisions in European football: penalties that were or were not given, offside calls, red cards, goal-line decisions, rule changes and how the laws of the game actually read. Each idea explains one famous documented incident and the exact rule involved, then asks the viewer to make the call.
+Topic: pick the most controversial refereeing or VAR decisions of one season or one competition, explain each with the exact law, and rank them. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: rivalry and debate, with dry humor; a documentary voiceover, not a list.
+FACTS: only real, documented, verifiable events and numbers. Never invent a number or detail.
+HARD LIMITS: Describe incidents only as they were documented in match reports, official statements and law-book text; never show or describe using broadcast footage. Never accuse a named referee, player or club of match-fixing, bribery or corruption unless it was proven by an official ruling. No insults based on nationality, race or religion, no partisan politics.
+Structure: a hook under 15 words that frames why this matters; then escalate through a few natural chapters (no labels); close with a punchy verdict or comparison. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the overall subject (describe the scene, never a brand/team/person). Pexels stock footage that matches the actual subject: e.g. 'referee whistle', 'soccer penalty spot', 'stadium screen', 'fans arguing', 'yellow card', 'soccer goal net', 'stadium night crowd', 'football pitch lines'.
+"moments": 2 to 4 striking stats/verdicts for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "16A34A"}.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven. "description" 2-4 sentences. "tags" include "var".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.
