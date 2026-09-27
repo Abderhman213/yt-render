@@ -229,7 +229,7 @@ CHANNELS = {
 # YT_<PREFIX>_* بتوعها يتضافوا في GitHub. لما تجهز: خلي enabled=True.
 # 3 شورتس يوميًا + فيديو طويل السبت، بتوقيت نيويورك.
 # القنوات الجديدة اللي مفاتيح يوتيوب بتاعتها اتضافت واتجرّبت — الباقي مقفول.
-LIVE_NEW_CHANNELS = {"goat", "ref", "money"}
+LIVE_NEW_CHANNELS = {"goat", "ref", "money", "future", "hist"}
 
 NEW_SHEETS = {'fc': '1nfEPxYbazXa1sHhctjMyxB0Vh54H9EpEFr8b-ju3G5I',
     'goat': '1xcdZi9P8fv6h0zKmEo73ALDMwBLCwu6sowA7TH6Vmrk',
