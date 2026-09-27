@@ -121,24 +121,30 @@ class Run:
     # ---------------------------------------------------------- short
 
     def short(self):
+        """
+        فكرة واحدة لكل تشغيلة: لو السكور أقل من 80، السكريبت بيتكتب تاني بناءً
+        على ملاحظات البوابة (لحد 3 مرات) وأول نسخة تعدّي بتتنشر. لو التلاتة
+        فشلوا، الفكرة بتتعلّم rejected والتشغيلة الجاية تاخد اللي بعدها.
+        """
         ch = self.ch
+        pick = self.pick_next(self.rows())
+        if pick["need_topics"]:
+            self.generate_ideas(pick)
+            return
+
+        nxt = pick["next"]
+        print(f"==> الفكرة: #{nxt.get('id')} {nxt.get('title')}", flush=True)
+        feedback, content, verdict, history = "", {}, {}, []
         for attempt in range(1, MAX_ATTEMPTS + 1):
             print(f"==> محاولة {attempt}/{MAX_ATTEMPTS}", flush=True)
-            pick = self.pick_next(self.rows())
-
-            if pick["need_topics"]:
-                self.generate_ideas(pick)
-                return
-
-            nxt = pick["next"]
-            print(f"==> الفكرة: #{nxt.get('id')} {nxt.get('title')}", flush=True)
-            content = ask(ch, "script", prompt(
-                ch, "script", TOPIC=nxt.get("topic", ""), TITLE=nxt.get("title", ""),
-                SEARCH_QUERY=nxt.get("search_query", "")))
+            text = prompt(ch, "script", TOPIC=nxt.get("topic", ""), TITLE=nxt.get("title", ""),
+                          SEARCH_QUERY=nxt.get("search_query", ""))
+            content = ask(ch, "script", text + feedback)
             gate = ask(ch, "gate", prompt(
                 ch, "gate", TITLE=content.get("title", ""), DESCRIPTION=content.get("description", ""),
                 LINES=js_json(content.get("lines", []))))
             verdict = self.check(content, gate, pick["published_titles"])
+            history.append(str(verdict["score"]))
             print(f"    درجة: {verdict['score']} — {verdict['reason']}", flush=True)
             if verdict["why"]:
                 print(f"    رأي البوابة: {verdict['why']}", flush=True)
@@ -149,19 +155,16 @@ class Run:
                 self.dispatch(payload)
                 self.sheet_update(nxt["id"], {"status": "rendering", "title": content.get("title", ""),
                                               "score": verdict["score"]})
-                self.notify(prefixed(ch, f"بدأ رندر: {content.get('title')} (درجة الجودة: {verdict['score']})"))
+                tries = f" بعد {attempt} محاولات ({' ← '.join(history)})" if attempt > 1 else ""
+                self.notify(prefixed(ch, f"بدأ رندر: {content.get('title')} (درجة الجودة: {verdict['score']}){tries}"))
                 return
 
-            fields = {"score": verdict["score"]}
-            if ch["reject_marks_row"]:
-                fields.update({"status": "rejected", "notes": verdict["reason"]})
-            self.sheet_update(nxt["id"], fields)
-            why = f"\nرأي البوابة: {verdict['why']}" if verdict["why"] and verdict["why"] not in verdict["reason"] else ""
-            self.notify(prefixed(ch, f"اترفض: {content.get('title')}\nالسبب: {verdict['reason']}{why}"))
-            if self.dry:
-                return
+            feedback = revision_note(content, verdict)
 
-        self.notify(prefixed(ch, "استنفدنا محاولات هذا التشغيل من غير موضوع مؤهل للنشر. هنجرب تاني في التشغيلة الجاية."))
+        self.sheet_update(nxt["id"], {"score": verdict["score"], "status": "rejected", "notes": verdict["reason"]})
+        why = f"\nرأي البوابة: {verdict['why']}" if verdict["why"] and verdict["why"] not in verdict["reason"] else ""
+        self.notify(prefixed(ch, f"اترفض بعد {MAX_ATTEMPTS} محاولات ({' ← '.join(history)}): {content.get('title')}\n"
+                                 f"السبب: {verdict['reason']}{why}\nالتشغيلة الجاية هتاخد الفكرة اللي بعدها."))
 
     def pick_next(self, rows):
         """اختيار الفكرة التالية."""
@@ -226,8 +229,7 @@ class Run:
         """فحص التكرار والدرجة."""
         ch = self.ch
         score = _num(gate.get("score"))
-        risk = str(gate.get("policy_risk") or "").lower()
-        risk_ok = risk == "low" if ch["strict_risk"] else risk != "high"
+        risk_ok = True  # فيتو الأمان اتشال بطلب صاحب القنوات؛ قواعد المحتوى لسه في برومبت السكريبت
         original = gate.get("is_original") is not False
 
         duplicate, best = False, 0.0
@@ -378,6 +380,20 @@ class Run:
 
 
 # ------------------------------------------------------------ clip pickers
+
+def revision_note(content, verdict):
+    """ملاحظات البوابة على النسخة اللي فاتت، عشان النسخة الجاية تصلّحها."""
+    return (
+        "\n\nREVISION REQUIRED: your previous draft of this script was rejected by the quality reviewer.\n"
+        f"Previous title: {content.get('title')}\n"
+        f"Previous lines: {js_json(content.get('lines') or [])}\n"
+        f"Score: {verdict['score']}/100 (needs {PASS_SCORE}+). Problem: {verdict['reason']}.\n"
+        f"Reviewer notes: {verdict['why'] or 'none'}\n"
+        "Write a new, clearly better version of the SAME topic that fixes every point above: a sharper "
+        "scroll-stopping first line, tighter sentences, stronger escalation and a punchier close. "
+        "If the problem was a duplicate title, use a clearly different title."
+    )
+
 
 def pick_pexels(videos, cfg):
     """نفس منطق عقد "تجهيز حمولة الرندر" في n8n."""

@@ -1,9 +1,8 @@
-Evaluate this true-mystery YouTube Shorts script for the channel "Cold File" for publishing risk (legal, advertiser-friendliness, YouTube violent-content policy) and its chance of holding a US viewer.
+Evaluate this true-mystery YouTube Shorts script for the channel "Cold File" for its chance of holding a US viewer.
 Title: {{TITLE}}
 Description: {{DESCRIPTION}}
 Narration lines: {{LINES}}
 
-Score it 0-100 on: does the FIRST line work as a scroll-stopping hook on its own? Does the narration add real original commentary? Are facts stated as documented, not invented? Is it safe under YouTube's policies and advertiser-friendly guidelines?
-Channel rules that must not be broken: never name or imply guilt of any living person who was not convicted; no gore or graphic violence; no child victims; no sexual crimes; no recent cases (last 10 years); no speculation presented as fact; no instructions that could help commit a crime; respect for victims and families; no partisan politics; no religion.
-Score below 60 if: the script is generic filler; the first line is weak or slow; it is longer than 9 sentences; it ends with a sign-off; it states a detail that reads as invented; or it breaks ANY channel rule above — in that case also set policy_risk to "high".
+Score it 0-100 on: does the FIRST line work as a scroll-stopping hook on its own? Does the narration add real original commentary? Are facts stated as documented, not invented? Does it avoid repetitious, low-effort AI content?
+Score below 60 if: the script is generic filler; the first line is weak or slow; it is longer than 9 sentences; it ends with a sign-off; it states a detail that reads as invented.
 Return only the JSON object described in your output format.

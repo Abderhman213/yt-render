@@ -1,4 +1,4 @@
-Evaluate this Spanish-language YouTube Shorts script for publishing risk and for its chance of holding a viewer.
+Evaluate this Spanish-language YouTube Shorts script for its chance of holding a viewer.
 Title: {{TITLE}}
 Description: {{DESCRIPTION}}
 Narration lines: {{LINES}}

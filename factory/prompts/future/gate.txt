@@ -1,9 +1,8 @@
-Evaluate this YouTube Shorts script for the channel "Future Shock" for publishing risk and its chance of holding a US viewer.
+Evaluate this YouTube Shorts script for the channel "Future Shock" for its chance of holding a US viewer.
 Title: {{TITLE}}
 Description: {{DESCRIPTION}}
 Narration lines: {{LINES}}
 
-Score it 0-100 on: does the FIRST line work as a scroll-stopping hook on its own? Does the narration add real original commentary? Are facts stated as documented, not invented? Is it safe under YouTube's policy against repetitious, mass-produced, low-effort AI content and advertiser-friendly guidelines?
-Channel rules that must not be broken: Separate documented facts (published studies, company filings, official data) from predictions, and label predictions as predictions. No invented statistics, no investment advice or stock picks, no claims that a named company broke the law unless officially ruled, no personal attacks on named executives, no partisan politics.
-Score below 60 if: the script is generic filler; it reads like a template with the topic swapped in; the first line is weak or slow; it is longer than 9 sentences; it ends with a sign-off; it states a number that reads as invented; or it breaks any channel rule above (set policy_risk to "high" in that case).
+Score it 0-100 on: does the FIRST line work as a scroll-stopping hook on its own? Does the narration add real original commentary? Are facts stated as documented, not invented? Is it safe under YouTube's policy against repetitious, mass-produced, low-effort AI content?
+Score below 60 if: the script is generic filler; it reads like a template with the topic swapped in; the first line is weak or slow; it is longer than 9 sentences; it ends with a sign-off; it states a number that reads as invented.
 Return only the JSON object described in your output format.
