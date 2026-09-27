@@ -34,7 +34,8 @@ from factory.channels import CHANNELS  # noqa: E402
 PROMPTS = Path(__file__).resolve().parent / "prompts"
 MOODS = ["upbeat", "calm", "dark", "epic", "electronic"]
 MAX_ATTEMPTS = 3
-PASS_SCORE = 80
+PASS_SCORE = 80    # أقل سكور ينفع يتنشر
+TARGET_SCORE = 90  # السكور اللي بنحاول نوصله قبل ما ننشر
 
 
 def js_json(v):
@@ -152,6 +153,7 @@ class Run:
         nxt = pick["next"]
         print(f"==> الفكرة: #{nxt.get('id')} {nxt.get('title')}", flush=True)
         feedback, content, verdict, history = "", {}, {}, []
+        best = None  # أحسن نسخة عدّت الحد الأدنى (80) لو ماوصلناش للهدف (90)
         for attempt in range(1, MAX_ATTEMPTS + 1):
             print(f"==> محاولة {attempt}/{MAX_ATTEMPTS}", flush=True)
             text = prompt(ch, "script", TOPIC=nxt.get("topic", ""), TITLE=nxt.get("title", ""),
@@ -160,28 +162,40 @@ class Run:
             gate = ask(ch, "gate", prompt(
                 ch, "gate", TITLE=content.get("title", ""), DESCRIPTION=content.get("description", ""),
                 LINES=js_json(content.get("lines", []))))
-            verdict = self.check(content, gate, pick["published_titles"])
+            verdict = self.check(content, gate, pick["published_titles"], threshold=TARGET_SCORE)
             history.append(str(verdict["score"]))
             print(f"    درجة: {verdict['score']} — {verdict['reason']}", flush=True)
             if verdict["why"]:
                 print(f"    رأي البوابة: {verdict['why']}", flush=True)
 
             if verdict["passed"]:
-                clips = self.short_clips(content)
-                payload = self.payload(nxt["id"], content, clips, ch["short_moments"], ch["short_mood_default"])
-                self.dispatch(payload)
-                self.sheet_update(nxt["id"], {"status": "rendering", "title": content.get("title", ""),
-                                              "score": verdict["score"]})
-                tries = f" بعد {attempt} محاولات ({' ← '.join(history)})" if attempt > 1 else ""
-                self.notify(prefixed(ch, f"بدأ رندر: {content.get('title')} (درجة الجودة: {verdict['score']}){tries}"))
+                self.publish(nxt, content, verdict, attempt, history)
                 return
-
+            floor = self.check(content, gate, pick["published_titles"], threshold=PASS_SCORE)
+            if floor["passed"] and (best is None or floor["score"] > best[1]["score"]):
+                best = (content, floor, attempt)
             feedback = revision_note(content, verdict)
+
+        if best:
+            content, verdict, attempt = best
+            print(f"==> ماوصلناش {TARGET_SCORE}، هننشر أحسن نسخة ({verdict['score']})", flush=True)
+            self.publish(nxt, content, verdict, attempt, history)
+            return
 
         self.sheet_update(nxt["id"], {"score": verdict["score"], "status": "rejected", "notes": verdict["reason"]})
         why = f"\nرأي البوابة: {verdict['why']}" if verdict["why"] and verdict["why"] not in verdict["reason"] else ""
         self.notify(prefixed(ch, f"اترفض بعد {MAX_ATTEMPTS} محاولات ({' ← '.join(history)}): {content.get('title')}\n"
                                  f"السبب: {verdict['reason']}{why}\nالتشغيلة الجاية هتاخد الفكرة اللي بعدها."))
+
+    def publish(self, nxt, content, verdict, attempt, history):
+        ch = self.ch
+        clips = self.short_clips(content)
+        payload = self.payload(nxt["id"], content, clips, ch["short_moments"], ch["short_mood_default"])
+        self.dispatch(payload)
+        self.sheet_update(nxt["id"], {"status": "rendering", "title": content.get("title", ""),
+                                      "score": verdict["score"]})
+        tries = f" — المحاولات: {' ← '.join(history)}" if len(history) > 1 else ""
+        self.notify(prefixed(ch, f"بدأ رندر: {content.get('title')} (درجة الجودة: {verdict['score']}){tries}"))
 
     def pick_next(self, rows):
         """اختيار الفكرة التالية."""
@@ -242,7 +256,7 @@ class Run:
         print(f"    اتضاف {len(rows)} فكرة", flush=True)
         self.notify(ch["messages"]["ideas"])
 
-    def check(self, content, gate, published_titles):
+    def check(self, content, gate, published_titles, threshold=PASS_SCORE):
         """فحص التكرار والدرجة."""
         ch = self.ch
         score = _num(gate.get("score"))
@@ -264,11 +278,11 @@ class Run:
 
         lines = content.get("lines")
         has_lines = isinstance(lines, list) and len(lines) >= ch["min_lines"]
-        passed = score >= PASS_SCORE and original and risk_ok and not duplicate and has_lines
+        passed = score >= threshold and original and risk_ok and not duplicate and has_lines
 
         if duplicate:
             reason = f"duplicate title (overlap {best:.2f})"
-        elif score < PASS_SCORE:
+        elif score < threshold:
             reason = f"low quality score: {score:g}"
         elif not risk_ok:
             reason = (f"policy risk {gate.get('policy_risk')}: " if ch["strict_risk"] else "high policy risk: ") + str(gate.get("reasons"))
@@ -404,7 +418,7 @@ def revision_note(content, verdict):
         "\n\nREVISION REQUIRED: your previous draft of this script was rejected by the quality reviewer.\n"
         f"Previous title: {content.get('title')}\n"
         f"Previous lines: {js_json(content.get('lines') or [])}\n"
-        f"Score: {verdict['score']}/100 (needs {PASS_SCORE}+). Problem: {verdict['reason']}.\n"
+        f"Score: {verdict['score']}/100 (target {TARGET_SCORE}+). Problem: {verdict['reason']}.\n"
         f"Reviewer notes: {verdict['why'] or 'none'}\n"
         "Write a new, clearly better version of the SAME topic that fixes every point above: a sharper "
         "scroll-stopping first line, tighter sentences, stronger escalation and a punchier close. "
