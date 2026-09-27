@@ -248,6 +248,15 @@ for _key, _name, _emoji, _hours, _long, _tag, _color in [
 ]:
     CHANNELS[_key] = _niche(_key, _name, _emoji, NEW_SHEETS[_key], _hours, _long, _tag, _color)
     CHANNELS[_key]["sheet_tab"] = None  # أول تاب في الشيت
+
+# القنوات دي معمولة على الرأي والجدل؛ البوابة ماتخصمش على إن الكلام "رأي"
+_OPINION_GATE = (
+    "\nThis channel's format IS the hot take: a bold, one-sided opinion is the product, not a flaw. "
+    "Do not lower the score because the script is subjective, opinionated or one-sided. Judge how "
+    "sharp and debate-provoking the take is and whether it is backed by real, documented numbers."
+)
+for _key in ("fc", "goat", "ref", "money", "future", "hist"):
+    CHANNELS[_key]["gate_note"] = _OPINION_GATE
     CHANNELS[_key]["enabled"] = _key in LIVE_NEW_CHANNELS
 
 # الـ Cold File كان مثال الأفكار بتاعه بيقول "teases the mystery" بدل "teases the answer".

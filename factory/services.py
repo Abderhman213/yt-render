@@ -12,6 +12,7 @@ import html
 import json
 import os
 import random
+import re
 import time
 import urllib.parse
 
@@ -195,14 +196,25 @@ def gemini_json(model, system, prompt, example, temperature):
     }
 
     def http():
-        r = requests.post(url, params={"key": key}, json=body, timeout=180)
-        if r.status_code in (429, 500, 502, 503, 504):
-            raise RuntimeError(f"Gemini HTTP {r.status_code}: {r.text[:300]}")
-        r.raise_for_status()
-        return r.json()
+        # 429 = حد الطلبات في الدقيقة (القنوات بتشتغل مع بعض). بنستنى المدة اللي
+        # Gemini بيقولها (retryDelay) أو نضاعف الانتظار، بدل ما نخبط فيه كل 5 ثواني.
+        wait = 8
+        for i in range(7):
+            r = requests.post(url, params={"key": key}, json=body, timeout=180)
+            if r.status_code not in (429, 500, 502, 503, 504):
+                r.raise_for_status()
+                return r.json()
+            delay = wait
+            m = re.search(r'"retryDelay":\s*"(\d+)', r.text)
+            if m:
+                delay = max(delay, int(m.group(1)) + 1)
+            print(f"! Gemini HTTP {r.status_code} — هستنى {delay} ثانية (محاولة {i + 1}/7)", flush=True)
+            time.sleep(min(delay, 65))
+            wait = min(wait * 2, 60)
+        raise RuntimeError(f"Gemini HTTP {r.status_code} بعد 7 محاولات: {r.text[:200]}")
 
     def once():
-        data = _retry(http, tries=5, wait=5, what=f"Gemini {model}")
+        data = http()
         parts = data["candidates"][0]["content"]["parts"]
         text = "".join(p.get("text", "") for p in parts).strip()
         return _parse_json(text)

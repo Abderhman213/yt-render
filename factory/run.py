@@ -76,8 +76,17 @@ IMAGE_QUERIES_NOTE = (
 )
 
 
+GATE_FIX_NOTE = (
+    '\nIn "reasons", name the 2-3 concrete changes that would raise this exact script to 90+ '
+    '(which line to rewrite and how). Do not just praise it.'
+)
+
+
 def ask(ch, stage, text):
     example = ch["examples"][stage]
+    if stage == "gate":
+        text = text.rstrip() + GATE_FIX_NOTE
+        text += ch.get("gate_note", "")
     if stage in ("script", "long") and '"image_queries"' not in example:
         text = text.rstrip() + IMAGE_QUERIES_NOTE
         example = example[:-1] + ',"image_queries":["specific subject","specific place or year","broad fallback"]}'
