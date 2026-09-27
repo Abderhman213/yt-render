@@ -140,6 +140,8 @@ class Run:
                 LINES=js_json(content.get("lines", []))))
             verdict = self.check(content, gate, pick["published_titles"])
             print(f"    درجة: {verdict['score']} — {verdict['reason']}", flush=True)
+            if verdict["why"]:
+                print(f"    رأي البوابة: {verdict['why']}", flush=True)
 
             if verdict["passed"]:
                 clips = self.short_clips(content)
@@ -154,7 +156,8 @@ class Run:
             if ch["reject_marks_row"]:
                 fields.update({"status": "rejected", "notes": verdict["reason"]})
             self.sheet_update(nxt["id"], fields)
-            self.notify(prefixed(ch, f"اترفض: {content.get('title')}\nالسبب: {verdict['reason']}"))
+            why = f"\nرأي البوابة: {verdict['why']}" if verdict["why"] and verdict["why"] not in verdict["reason"] else ""
+            self.notify(prefixed(ch, f"اترفض: {content.get('title')}\nالسبب: {verdict['reason']}{why}"))
             if self.dry:
                 return
 
@@ -256,7 +259,8 @@ class Run:
             reason = "not original enough" if ch["key"] == "es" else "not original"
         else:
             reason = "OK"
-        return {"passed": passed, "reason": reason, "score": score}
+        return {"passed": passed, "reason": reason, "score": score,
+                "why": str(gate.get("reasons") or "").strip()}
 
     def short_clips(self, content):
         cfg = self.ch["short_clips"]
