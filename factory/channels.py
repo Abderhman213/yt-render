@@ -228,6 +228,9 @@ CHANNELS = {
 # الست قنوات الجداد — مقفولة (enabled=False) لحد ما قناة يوتيوب ومفاتيح
 # YT_<PREFIX>_* بتوعها يتضافوا في GitHub. لما تجهز: خلي enabled=True.
 # 3 شورتس يوميًا + فيديو طويل السبت، بتوقيت نيويورك.
+# القنوات الجديدة اللي مفاتيح يوتيوب بتاعتها اتضافت واتجرّبت — الباقي مقفول.
+LIVE_NEW_CHANNELS = {"goat"}
+
 NEW_SHEETS = {'fc': '1nfEPxYbazXa1sHhctjMyxB0Vh54H9EpEFr8b-ju3G5I',
     'goat': '1xcdZi9P8fv6h0zKmEo73ALDMwBLCwu6sowA7TH6Vmrk',
     'ref': '1FZP-xjr0npUd43XTD7W77_XIlLlDKbGX1wyF-BlQvfo',
@@ -245,7 +248,7 @@ for _key, _name, _emoji, _hours, _long, _tag, _color in [
 ]:
     CHANNELS[_key] = _niche(_key, _name, _emoji, NEW_SHEETS[_key], _hours, _long, _tag, _color)
     CHANNELS[_key]["sheet_tab"] = None  # أول تاب في الشيت
-    CHANNELS[_key]["enabled"] = False
+    CHANNELS[_key]["enabled"] = _key in LIVE_NEW_CHANNELS
 
 # الـ Cold File كان مثال الأفكار بتاعه بيقول "teases the mystery" بدل "teases the answer".
 CHANNELS["crime"]["examples"]["ideas"] = CHANNELS["crime"]["examples"]["ideas"].replace(
