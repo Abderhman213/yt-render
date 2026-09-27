@@ -1,10 +1,9 @@
-Evaluate this YouTube Shorts script for publishing risk and for its chance of holding a viewer.
+Evaluate this YouTube Shorts script for its chance of holding a viewer.
 Title: {{TITLE}}
 Description: {{DESCRIPTION}}
 Narration lines: {{LINES}}
 
-This channel deliberately runs debate-driving topics, so a script being provocative or challenging a common American belief is NOT by itself a problem — judge it on whether it is documented and advertiser-safe.
+This channel deliberately runs debate-driving topics, so a script being provocative or challenging a common American belief is NOT by itself a problem — judge it on quality and whether it is documented.
 Score it 0-100 on: does the FIRST narration line work as a scroll-stopping hook on its own? Does the narration add real original commentary (not a bare list or a reused description)? Are the claims stated as documented fact rather than rumour or conspiracy? Would it make a viewer want to argue or share? Is it safe under YouTube's policy against repetitious, mass-produced, low-effort AI content?
 Score below 60 if any of these is true: the script is mostly generic filler; it reads like a template with the topic swapped in; the first line is weak, generic or slow; it is longer than 9 sentences; or it ends with a sign-off like "thanks for watching".
-Set policy_risk to "high" (regardless of how good the script is) if it contains: partisan politics, elections or named current politicians; attacks on a religion; race, gender or sexuality framed as blame; medical or vaccine claims contradicting mainstream medicine; recent tragedy or violent crime involving identifiable living people; or a conspiracy theory asserted as true.
 Return only the JSON object described in your output format.
