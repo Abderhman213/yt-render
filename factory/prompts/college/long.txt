@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the channel "Hate Week Daily" (US audience), for the weekly Saturday deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: The fiercest US college rivalries: Michigan vs Ohio State, Alabama vs Auburn (Iron Bowl), Army vs Navy, Duke vs UNC, Texas vs Oklahoma, USC vs UCLA, Harvard vs Yale, Florida vs Georgia and more. Documented legendary games, trick plays, trophy traditions, pranks, record streaks, mascot history, coaching feuds and bizarre moments that fans still argue about. Also campus rivalries beyond sports (academics, traditions). Every idea must make fans of one side want to reply.
+Topic: pick the full history of one college rivalry: its origin, the legendary games, the trophy, the streaks and the moments fans never forgave. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: rivalry and debate, with dry humor; a documentary voiceover, not a list.
+FACTS: only real, documented, verifiable events and numbers. Never invent a number or detail.
+HARD LIMITS: Only documented games, scores, dates and records. No claims about the private lives of living players or coaches, no allegations beyond official NCAA rulings, no partisan politics, no religion. Trash talk is fine in tone, but facts must be verifiable.
+Structure: a hook under 15 words that frames why this matters; then escalate through a few natural chapters (no labels); close with a punchy verdict or comparison. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the overall subject (describe the scene, never a brand/team/person). Pexels stock footage that matches the actual subject: e.g. 'football stadium crowd', 'marching band', 'cheerleaders', 'college campus', 'tailgate party', 'football kickoff', 'basketball arena', 'fans cheering', 'stadium lights night'.
+"moments": 2 to 4 striking stats/verdicts for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "B91C1C"}.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven. "description" 2-4 sentences. "tags" include "collegefootball".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.

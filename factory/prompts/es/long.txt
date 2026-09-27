@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script IN SPANISH (Spain Castilian Spanish) about La Liga football history, for a weekly Saturday deep-dive video. This is NOT a Shorts script — target 5 to 7 minutes of spoken narration (roughly 32 to 45 short sentences), so pick a topic with enough real substance: a full legendary season, a complete rivalry history, a club's golden era, or a documented saga (a scandal, a title race, a dynasty) told chronologically with real turning points.
+Audience: football fans in Spain. Same factual rules as always: only real, documented La Liga history — verifiable records, match results, dates, disciplinary/federation rulings, transfer facts. Never invent a number or detail, never touch a living player's private life, and treat any controversy as it was actually documented at the time.
+Structure: open with a strong hook (under 15 words) that frames why this story matters. Then tell it in clear chronological or escalating order, grouping the narration into a few natural chapters (no need to label them explicitly, just let the pacing show it). Close with a punchy takeaway or a comparison that reframes the scale of the story. Vary sentence length naturally; this is a spoken documentary voiceover, not a list of bullet points.
+"image_queries": an array of 8 to 12 SPECIFIC English search terms for Wikimedia Commons naming the real clubs, stadiums, players and seasons/years this specific script actually talks about, plus one broad fallback term like "La Liga football" as the last item.
+"moments": an array of 2 to 4 of the single most striking documented stats/quotes from across the whole story, for on-screen text cards where no footage exists. Each item: {"text": short punchy line under 6 words in Spanish; "subtext": optional factual detail; "color": 6-digit hex (no #) matching the main club's primary colour}.
+"voice" must be EXACTLY one of: es-ES-AlvaroNeural, es-ES-ElviraNeural, es-ES-XimenaNeural.
+"mood" must be EXACTLY one of: upbeat, calm, dark, epic, electronic — pick honestly for this story's overall feel.
+"title" under 60 characters in Spanish, curiosity-driven, no giveaway.
+"description": 2-4 sentences in Spanish.
+"tags": include "laliga".
+Today's date context: {{NOW}}.
+Return only the JSON object described in your output format. "lines" must be an array of complete spoken sentences in order, plain Spanish, no markdown, no emoji, no line numbers, no sign-off.

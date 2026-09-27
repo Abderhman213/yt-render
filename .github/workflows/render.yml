@@ -1,7 +1,7 @@
 name: render-and-upload
 
-# n8n بيشغّل الـ workflow ده عن طريق workflow_dispatch ويبعتله الـ payload.
-# GitHub Actions هي اللي بتقوم بدور السيرفر: ffmpeg والتعليق الصوتي والرفع.
+# factory.yml بيشغّل الـ workflow ده عن طريق workflow_dispatch ويبعتله الـ payload
+# (زي ما n8n كان بيعمل قبل كده). هنا ffmpeg والتعليق الصوتي والرفع.
 on:
   workflow_dispatch:
     inputs:
@@ -45,7 +45,8 @@ jobs:
           python -m pip install --quiet \
             edge-tts \
             google-api-python-client \
-            google-auth
+            google-auth \
+            requests
 
       - name: كتابة الـ payload
         env:
@@ -64,13 +65,13 @@ jobs:
         id: chan
         run: |
           case "${{ inputs.channel }}" in
-            es) echo "prefix=YT_ES" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_ES" >> "$GITHUB_OUTPUT" ;;
-            bw) echo "prefix=YT_BW" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_BW" >> "$GITHUB_OUTPUT" ;;
-            gen) echo "prefix=YT_GEN" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_GEN" >> "$GITHUB_OUTPUT" ;;
-            states) echo "prefix=YT_STATES" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_STATES" >> "$GITHUB_OUTPUT" ;;
-            college) echo "prefix=YT_COLLEGE" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_COLLEGE" >> "$GITHUB_OUTPUT" ;;
-            crime) echo "prefix=YT_CRIME" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N_CRIME" >> "$GITHUB_OUTPUT" ;;
-            *) echo "prefix=YT" >> "$GITHUB_OUTPUT"; echo "n8n_prefix=N8N" >> "$GITHUB_OUTPUT" ;;
+            es) echo "prefix=YT_ES" >> "$GITHUB_OUTPUT" ;;
+            bw) echo "prefix=YT_BW" >> "$GITHUB_OUTPUT" ;;
+            gen) echo "prefix=YT_GEN" >> "$GITHUB_OUTPUT" ;;
+            states) echo "prefix=YT_STATES" >> "$GITHUB_OUTPUT" ;;
+            college) echo "prefix=YT_COLLEGE" >> "$GITHUB_OUTPUT" ;;
+            crime) echo "prefix=YT_CRIME" >> "$GITHUB_OUTPUT" ;;
+            *) echo "prefix=YT" >> "$GITHUB_OUTPUT" ;;
           esac
 
       - name: الرفع على يوتيوب
@@ -81,11 +82,17 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets[format('{0}_REFRESH_TOKEN', steps.chan.outputs.prefix)] }}
         run: python scripts/upload.py
 
-      - name: إبلاغ n8n بالنتيجة
+      - name: إبلاغ النتيجة (الشيت + تليجرام)
+        # بديل وركفلوهات n8n "استقبال نتيجة الرندر": بيحدّث صف الفكرة ويبعت إشعار
         if: always()
         env:
-          N8N_CALLBACK_URL: ${{ secrets[format('{0}_CALLBACK_URL', steps.chan.outputs.n8n_prefix)] }}
-        run: python scripts/callback.py
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: python factory/report.py "${{ inputs.channel }}"
 
       - name: حفظ الفيديو لو الرفع فشل
         if: failure()

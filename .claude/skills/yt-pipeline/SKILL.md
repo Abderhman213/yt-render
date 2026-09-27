@@ -1,6 +1,6 @@
 ---
 name: yt-pipeline
-description: Operate and modify the yt-render YouTube Shorts pipeline (n8n → GitHub Actions render/upload) across its 7 channels (English, Spanish/"Pasión Liguera", and 5 niche channels: Brand Battles Daily, Boomer vs Zoomer, 50 States Showdown, Hate Week Daily, Cold File). Use whenever asked to change video content/topics, background music, voice, clip sourcing, upload/retry behavior, or to debug a failed render/upload run — and especially when a change needs to be applied consistently across multiple or all channel workflows at once.
+description: Operate and modify the yt-render YouTube Shorts pipeline (GitHub Actions factory → render/upload; migrated off n8n) across its 7 channels (English, Spanish/"Pasión Liguera", and 5 niche channels: Brand Battles Daily, Boomer vs Zoomer, 50 States Showdown, Hate Week Daily, Cold File). Use whenever asked to change video content/topics, background music, voice, clip sourcing, upload/retry behavior, or to debug a failed render/upload run — and especially when a change needs to be applied consistently across multiple or all channel workflows at once.
 ---
 
 # yt-render pipeline
@@ -9,20 +9,21 @@ description: Operate and modify the yt-render YouTube Shorts pipeline (n8n → G
 
 ## Architecture
 
-- `render.yml` (GitHub Actions) takes a `payload` JSON string + `channel` input. Secrets are indexed dynamically per channel (`YT_*` for English, `YT_<PREFIX>_*` for every other channel — see [[youtube-render-secret-prefixes]] in memory for the prefix map), separate Actions concurrency group per channel.
-- n8n generates content (topic → script/metadata → clip search → render payload → dispatch `render.yml` → upload) and is the source of truth for prompts/topics/guardrails. Each channel has one main workflow (idea → script → quality gate → render dispatch) and one separate callback workflow (webhook receiver for the render/upload result). Current main-workflow IDs:
-  - English "المصنع — توليد ونشر": `QqhrZncobmYLYSKE`
-  - Spanish "المصنع الإسباني — كورة": `TNpLJWN9Zowz70Ii`
-  - Brand Battles Daily (brand wars): `pZ40EDaTeNBzsRZq`
-  - Boomer vs Zoomer (generational wars): `ushexDYeFcxqPGDC`
-  - 50 States Showdown (state rivalries): `avXv5Wv8XABUbdAb`
-  - Hate Week Daily (college sports rivalries): `uCO00kcu4OSptZEP`
-  - Cold File (true crime): `SVqeV095qiTtaGm7`
-  - These IDs can go stale — confirm with `mcp__n8n__search_workflows` before trusting this list blindly.
-- `scripts/render.py` does the actual video assembly (voice, clips, music, captions). `scripts/upload.py` uploads to YouTube, honors `meta.get("privacy", "public")`, retries transient upload failures (see [[youtube-retry-on-failure]]).
+- **n8n is retired.** Everything that the 14 n8n workflows did (7 "مصنع" factories + 7 "استقبال نتيجة الرندر" callbacks) now lives in this repo:
+  - `.github/workflows/factory.yml` — hourly cron (`7 * * * *`) + `workflow_dispatch` (channel / mode / dry_run / privacy). `factory/plan.py` picks the channels whose local-time slot (America/New_York, Europe/Madrid for `es`) matches, so DST is handled in Python, not cron.
+  - `factory/run.py` — the pipeline (read sheet → ideas or script → quality gate → dup/score check → Pexels/Commons clips → dispatch `render.yml` via `GITHUB_TOKEN` → update row → Telegram; up to 3 attempts per run).
+  - `factory/channels.py` — per-channel config (sheet id/tab, hours, Gemini models/temps, voices, clip rules, gate strictness). Channel keys: `en, es, bw, gen, states, college, crime`; `render_channel` is the `channel` input of `render.yml` (`""` for en).
+  - `factory/prompts/<channel>/{ideas,script,gate,long}.txt` — prompts copied verbatim from n8n, with `{{PUBLISHED_TITLES}}`, `{{TOPIC}}`, `{{TITLE}}`, `{{SEARCH_QUERY}}`, `{{DESCRIPTION}}`, `{{LINES}}`, `{{NOW}}` placeholders.
+  - `factory/report.py` — last step of `render.yml` (replaces the n8n callback webhooks): updates the row (`status=ok|failed`, `video_id`, `video_url`, `run`) and sends Telegram.
+- Per-channel quirks preserved on purpose: `en`/`es` rejected rows only get `score` (same topic is retried); niche channels mark `status=rejected`. `es` has the La Liga filter, `blocked_ids`, `priority_ids`, `verified_topics`, no dup check, `min_lines=5`. `crime` rejects any `policy_risk` other than `low`.
+- Secrets: `GEMINI_API_KEY`, `PEXELS_API_KEY`, `TELEGRAM_BOT_TOKEN`, `GOOGLE_SERVICE_ACCOUNT_JSON` (or `GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN`), plus the existing `YT_*` upload secrets. Optional repo variable `TELEGRAM_CHAT_ID`.
+- `render.yml` (GitHub Actions) takes a `payload` JSON string + `channel` input. Secrets are indexed dynamically per channel (`YT_*` for English, `YT_<PREFIX>_*` for every other channel), separate Actions concurrency group per channel.
+- `scripts/render.py` does the actual video assembly (voice, clips, music, captions). `scripts/upload.py` uploads to YouTube, honors `meta.get("privacy", "public")`, retries transient upload failures.
 - `assets/music/` holds the real background-music tracks + `manifest.json` (filename → mood tags) + `SOURCES.md` (licenses). `.github/workflows/fetch-music.yml` is the reusable workflow that downloads new CC0/public-domain tracks from archive.org and commits them (the dev sandbox can't reach archive.org directly, so this must run on an Actions runner).
 
 ## Critical rules
+
+> Rules about n8n (`update_workflow`, `publish_workflow`, republishing) and the n8n sections further down only matter if the old n8n workflows are ever re-enabled. For the GitHub factory, edit `factory/` and test with `factory.yml` → `dry_run: true` first.
 
 1. **n8n `update_workflow` only edits the draft.** You MUST call `publish_workflow` after every change or production keeps running the old version. This is the single most common mistake — always publish after updating.
 2. **`update_workflow` operation format**: `{"type": "updateNodeParameters", "nodeName": "<exact node name>", "parameters": {...}}`. There is no `nodeId`/`changes` form — it will be rejected.
