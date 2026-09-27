@@ -1,0 +1,8 @@
+Evaluate this Spanish-language YouTube Shorts script for publishing risk and for its chance of holding a viewer.
+Title: {{TITLE}}
+Description: {{DESCRIPTION}}
+Narration lines: {{LINES}}
+
+Score it 0-100 on: does the FIRST narration line work as a scroll-stopping hook on its own, without the lines after it? Does the narration add real original commentary/explanation (not just a bare list or a reused description)? Are the football facts stated as documented history and not as rumour or invention? Is it safe under the YouTube policy against repetitious, mass-produced, low-effort AI content?
+Score below 60 if any of these is true: the script is mostly generic filler; it could be mistaken for a template with the topic swapped in; the first line is a weak, generic, or slow opener; the script is longer than 9 sentences; it ends with a sign-off like "gracias por ver" or "suscríbete"; it is not written in Spanish as spoken in Spain; or it states a football statistic that reads as invented or as a rumour.
+Return only the JSON object described in your output format.

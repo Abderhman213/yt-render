@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the true-mystery channel "Cold File" (US audience), for the weekly Saturday night deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: Real, well-documented American mysteries and cold cases: famous unsolved cases, strange disappearances, heists, forgery and fraud cases, mysterious ciphers, cases cracked decades later by new forensic methods, and baffling documented incidents.
+Topic: pick one famous documented case (ideally 30+ years old) told as a documentary: the setting, the timeline, the investigation, the theories that were officially considered, and what remains unanswered. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: suspenseful documentary voiceover, respectful to victims and families; occasional dry wit only about the oddities of the case.
+FACTS: only facts from public records, court documents and reputable reporting. Never invent a detail, quote or number.
+HARD LIMITS: STRICT: never name or imply guilt of any living person who was not convicted; say 'a suspect' instead. No gore, no graphic descriptions of violence or injuries, no content about child victims, no sexual crimes, no recent cases (last 10 years), no speculation presented as fact, no instructions that could help commit a crime. No partisan politics, no religion.
+Structure: a hook under 15 words; then a few natural chapters (no labels) following the timeline; close with the open question or the resolution. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the mood and setting (describe the scene, never a person). e.g. 'crime scene tape', 'dark alley', 'police lights night', 'old files', 'detective desk', 'foggy forest', 'empty road night', 'typewriter', 'magnifying glass'.
+"moments": 2 to 4 key dates, places or numbers for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "991B1B"}. Never put a suspect's name on a card.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven, not sensational about violence. "description" 2-4 sentences. "tags" include "unsolved".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.

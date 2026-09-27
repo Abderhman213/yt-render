@@ -1,0 +1,12 @@
+Generate 20 fresh YouTube Shorts video ideas for the English-language channel "50 States Showdown", aimed at a US audience.
+Niche: Rivalries between US states and cities: Texas vs California, New York pizza vs Chicago deep dish, Carolina vs Texas vs Kansas City BBQ, Florida vs California weather, Michigan vs Ohio, East Coast vs West Coast, who says 'soda' vs 'pop', border disputes (the Toledo War etc.), state records, weird state laws, cost of living, food origins and documented bragging rights. Every idea must pit states or regions against each other so viewers defend their home state.
+Tone: a mix of heated, debate-driven rivalry ("who wins?", pick a side) and light, witty humor. Provocative and funny is good; mean-spirited or inflammatory is not.
+HARD LIMITS: Keep it playful: no partisan politics, elections, named politicians or red-vs-blue framing; no religion; no race/ethnicity framed as blame; no crime-rate shaming of real communities. Rankings and numbers must come from real published sources (Census, BLS, NOAA, etc.). These limits protect the channel's monetization, so an idea that breaks them is worthless.
+Only real, verifiable events and numbers. If a claim cannot be stated as documented fact, do not propose it. A debunked myth is fine when it is clearly framed as the debunk.
+"search_query" must be a 2-3 word English stock footage term for Pexels that visually matches THIS idea's actual subject (Pexels has no footage of specific brands, teams, events or people, so describe the scene, not the name). Pexels stock footage that matches the actual subject: e.g. 'barbecue smoke', 'pizza cheese pull', 'desert highway', 'city skyline night', 'beach palm trees', 'snowy street', 'corn field', 'road trip car', 'mountain lake'. Vary it across the batch; identical terms return identical clips.
+"voice" must be EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural.
+The "tags" array must always include "states".
+Each idea must be a genuinely different angle or subject — do not repeat or lightly rephrase any of these already-published titles:
+{{PUBLISHED_TITLES}}
+Each idea must support real narration with original commentary (not a bare list of reused clips) so it satisfies YouTube's policy against repetitious, low-effort content.
+Return only the JSON object described in your output format.

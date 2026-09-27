@@ -1,0 +1,102 @@
+name: factory
+
+# بديل وركفلوهات n8n "مصنع ..." السبعة: توليد الأفكار والسكريبت وبوابة الجودة
+# واللقطات، وبعدين تشغيل render.yml للرندر والرفع.
+#
+# بيصحى كل ساعة (دقيقة 7) و factory/plan.py بيقرر مين من القنوات ميعاده دلوقتي
+# حسب توقيتها المحلي — المواعيد نفسها في factory/channels.py.
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "القناة (en/es/bw/gen/states/college/crime) أو all"
+        required: true
+        default: "en"
+        type: string
+      mode:
+        description: "short = شورت، long = فيديو السبت الطويل"
+        required: true
+        default: "short"
+        type: choice
+        options: [short, long]
+      dry_run:
+        description: "تجربة جافة: Gemini و Pexels بس، من غير شيت ولا تليجرام ولا رندر"
+        required: false
+        default: false
+        type: boolean
+      privacy:
+        description: "غيّر privacy بتاع الفيديو (فاضي = public زي العادي)"
+        required: false
+        default: ""
+        type: choice
+        options: ["", private, unlisted, public]
+
+permissions:
+  contents: read
+  actions: write   # عشان يشغّل render.yml
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: factory
+      - id: plan
+        run: python3 factory/plan.py --channel "${{ inputs.channel }}" --mode "${{ inputs.mode }}"
+
+  produce:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    # تشغيلتين لنفس القناة مايركبوش على بعض (كانوا هيختاروا نفس الفكرة)
+    concurrency:
+      group: factory-${{ matrix.channel }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: تثبيت المكتبات
+        run: python -m pip install --quiet google-auth requests
+
+      - name: المصنع — ${{ matrix.channel }} / ${{ matrix.mode }}
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          RENDER_REF: ${{ github.ref_name }}
+        run: |
+          args="--channel ${{ matrix.channel }} --mode ${{ matrix.mode }}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then args="$args --dry-run"; fi
+          if [ -n "${{ inputs.privacy }}" ]; then args="$args --privacy ${{ inputs.privacy }}"; fi
+          python -m factory.run $args
+
+      - name: حفظ الـ payload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payload-${{ matrix.channel }}-${{ matrix.mode }}-${{ github.run_id }}
+          path: payload.json
+          retention-days: 7
+          if-no-files-found: ignore

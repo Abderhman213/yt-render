@@ -61,7 +61,26 @@ assets/music/          ← حط هنا مقاطع الموسيقى
 | `YT_CLIENT_ID` | من الخطوة ٢ |
 | `YT_CLIENT_SECRET` | من الخطوة ٢ |
 | `YT_REFRESH_TOKEN` | من OAuth Playground |
-| `N8N_CALLBACK_URL` | عنوان الـ webhook بتاع n8n (اختياري) |
+
+القنوات التانية ليها نفس التلاتة ببادئة مختلفة: `YT_ES_*`, `YT_BW_*`, `YT_GEN_*`,
+`YT_STATES_*`, `YT_COLLEGE_*`, `YT_CRIME_*`.
+
+### أسرار المصنع (factory.yml — بديل n8n)
+
+| الاسم | القيمة |
+|---|---|
+| `GEMINI_API_KEY` | مفتاح Google AI Studio (نفس اللي كان في n8n) |
+| `PEXELS_API_KEY` | مفتاح Pexels |
+| `PIXABAY_API_KEY` | مفتاح Pixabay (اختياري — من غيره بيكتفي بـ Pexels و Commons) |
+| `TELEGRAM_BOT_TOKEN` | توكن البوت من BotFather |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | ملف JSON بتاع Service Account كامل. **لازم تعمل Share لكل شيت من السبعة لإيميل الـ service account (Editor).** |
+
+بديل الـ service account: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + `GOOGLE_REFRESH_TOKEN`
+بنفس طريقة OAuth Playground في الخطوة ٢، بس بالـ scope
+`https://www.googleapis.com/auth/spreadsheets`.
+
+اختياري: متغير (Variable مش Secret) اسمه `TELEGRAM_CHAT_ID` لو عايز الإشعارات تروح
+لمحادثة غير الافتراضية.
 
 ---
 
@@ -108,7 +127,7 @@ assets/music/          ← حط هنا مقاطع الموسيقى
 
 | الحقل | إيه هو |
 |---|---|
-| `id` | معرّف صف الفكرة في جدول n8n. بيرجع كما هو في الإبلاغ النهائي علشان n8n يعرف يحدّث الصف الصح. |
+| `id` | معرّف صف الفكرة في جدول القناة. بيرجع كما هو في الإبلاغ النهائي (`factory/report.py`) علشان يحدّث الصف الصح. |
 | `lines` | السكريبت مقسّم جمل. كل جملة بتبقى سطر ترجمة لوحدها. |
 | `clips` | روابط فيديو مباشرة من Pexels. بتتقص وتتوزّع على مدة الصوت. |
 | `voice` | صوت edge-tts، مثلاً `en-US-AndrewNeural` أو `en-GB-RyanNeural` |
@@ -116,3 +135,25 @@ assets/music/          ← حط هنا مقاطع الموسيقى
 
 التوقيت بتاع الترجمة بيتحسب من مدة كل جملة بعد تحويلها لصوت — يعني مظبوط
 بالظبط، من غير تعرّف آلي على الكلام ومن غير تخمين.
+
+---
+
+## المصنع (بديل n8n)
+
+`factory.yml` بيصحى كل ساعة، و`factory/plan.py` بيشغّل القنوات اللي ميعادها
+دلوقتي حسب توقيتها المحلي (نيويورك، ومدريد للقناة الإسبانية). كل تشغيلة:
+
+1. تقرا جدول القناة. لو الأفكار قليلة، تولّد 20 فكرة بـ Gemini وتضيفها وتقف.
+2. تكتب السكريبت، وتعدّيه على بوابة الجودة (درجة 80 أو أكتر، ومن غير تكرار أو خطر).
+3. تجيب لقطات من تلات مصادر مع بعض: Wikimedia Commons (حوالي التلت، صور حقيقية للي بيتحكي عنه)، و Pexels و Pixabay (لقطات عامة). لو مصدر وقع، الباقيين بيكمّلوا.
+4. تشغّل `render.yml`، وفي آخره `factory/report.py` بيحدّث الصف ويبعت تليجرام.
+
+| الملف | فيه إيه |
+|---|---|
+| `factory/channels.py` | الشيتات، المواعيد، الموديلات، الأصوات، وقواعد كل قناة |
+| `factory/prompts/<قناة>/` | البرومبتات: `ideas`, `script`, `gate`, `long` |
+| `factory/run.py` | خط الإنتاج نفسه |
+
+تشغيل يدوي: **Actions → factory → Run workflow**. اختار القناة (أو `all`) والنوع،
+وعلّم `dry_run` لتجربة من غير ما يكتب في الشيت أو ينشر، أو اختار `privacy=private`
+لأول فيديو حقيقي.

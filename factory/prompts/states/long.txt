@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the channel "50 States Showdown" (US audience), for the weekly Saturday deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: Rivalries between US states and cities: Texas vs California, New York pizza vs Chicago deep dish, Carolina vs Texas vs Kansas City BBQ, Florida vs California weather, Michigan vs Ohio, East Coast vs West Coast, who says 'soda' vs 'pop', border disputes (the Toledo War etc.), state records, weird state laws, cost of living, food origins and documented bragging rights. Every idea must pit states or regions against each other so viewers defend their home state.
+Topic: pick one epic state-vs-state (or region-vs-region) rivalry covered from every angle: history, food, sports, weather, money, with a final verdict. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: rivalry and debate, with dry humor; a documentary voiceover, not a list.
+FACTS: only real, documented, verifiable events and numbers. Never invent a number or detail.
+HARD LIMITS: Keep it playful: no partisan politics, elections, named politicians or red-vs-blue framing; no religion; no race/ethnicity framed as blame; no crime-rate shaming of real communities. Rankings and numbers must come from real published sources (Census, BLS, NOAA, etc.).
+Structure: a hook under 15 words that frames why this matters; then escalate through a few natural chapters (no labels); close with a punchy verdict or comparison. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the overall subject (describe the scene, never a brand/team/person). Pexels stock footage that matches the actual subject: e.g. 'barbecue smoke', 'pizza cheese pull', 'desert highway', 'city skyline night', 'beach palm trees', 'snowy street', 'corn field', 'road trip car', 'mountain lake'.
+"moments": 2 to 4 striking stats/verdicts for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "2563EB"}.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven. "description" 2-4 sentences. "tags" include "states".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.

@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the channel "Brand Battles Daily" (US audience), for the weekly Saturday deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: The biggest brand rivalries in American business and pop culture: Coke vs Pepsi, McDonald's vs Burger King, Nike vs Adidas, Apple vs Microsoft/Samsung, Ford vs Chevy, Walmart vs Target, Starbucks vs Dunkin', Marvel vs DC, and many more. Focus on documented ad wars, famous marketing stunts, public blind tests, product flops (New Coke, etc.), lawsuits between rivals, comebacks, market-share swings and surprising origin stories. Every idea should make viewers defend 'their' brand.
+Topic: pick the complete history of one great brand rivalry told chronologically, with its turning points, ad campaigns and market-share numbers. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: rivalry and debate, with dry humor; a documentary voiceover, not a list.
+FACTS: only real, documented, verifiable events and numbers. Never invent a number or detail.
+HARD LIMITS: Only documented business history (company filings, published ads, court rulings, reputable reporting). Never claim a product is unsafe or a company committed wrongdoing unless it was officially ruled. No defamation, no partisan politics, no religion. Do not imply the channel is affiliated with or sponsored by any brand.
+Structure: a hook under 15 words that frames why this matters; then escalate through a few natural chapters (no labels); close with a punchy verdict or comparison. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the overall subject (describe the scene, never a brand/team/person). Pexels stock footage that matches the actual subject (no logos exist there): e.g. 'soda pouring', 'store counter', 'vending machine', 'fast food burger', 'coffee shop barista', 'sneakers running', 'supermarket shelves', 'car dealership', 'laptop typing'.
+"moments": 2 to 4 striking stats/verdicts for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "EF4444"}.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven. "description" 2-4 sentences. "tags" include "brandwars".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.

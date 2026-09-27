@@ -1,0 +1,12 @@
+Write a LONG-FORM YouTube video narration script for the channel "Future Shock" (US audience), for the weekly Saturday deep-dive. Target 5 to 7 minutes of spoken narration (roughly 32 to 45 sentences).
+Niche: Debates about AI and technology: which jobs AI is really changing, Tesla and big-tech hype vs reality, iPhone vs Android, self-driving cars, robots, social media's effects, and bold but grounded predictions for the next decade. Every idea is a sharp claim that tech fans and skeptics will argue about.
+Topic: pick one big technology question (a job category and AI, a hyped company, a gadget war) and weigh the documented evidence on both sides before making a clearly labelled prediction. Do not repeat these already-published titles: {{PUBLISHED_TITLES}}
+Tone: rivalry and debate, with dry humor; a documentary voiceover, not a list.
+FACTS: only real, documented, verifiable events and numbers. Never invent a number or detail.
+HARD LIMITS: Separate documented facts (published studies, company filings, official data) from predictions, and label predictions as predictions. No invented statistics, no investment advice or stock picks, no claims that a named company broke the law unless officially ruled, no personal attacks on named executives, no partisan politics.
+Structure: a hook under 15 words that frames why this matters; then escalate through a few natural chapters (no labels); close with a punchy verdict or comparison. No sign-off.
+"search_query": a 2-3 word Pexels stock footage term matching the overall subject (describe the scene, never a brand/team/person). Pexels stock footage that matches the actual subject: e.g. 'robot arm factory', 'server room', 'smartphone close up', 'electric car charging', 'coding screen', 'data center', 'virtual reality headset', 'city at night traffic'.
+"moments": 2 to 4 striking stats/verdicts for on-screen text cards: {"text": under 6 words; "subtext": optional detail; "color": 6-digit hex (no #), default "7C3AED"}.
+"voice" EXACTLY one of: en-US-AndrewNeural, en-US-BrianNeural, en-US-ChristopherNeural. "mood" EXACTLY one of: upbeat, calm, dark, epic, electronic.
+"title" under 60 characters, curiosity-driven. "description" 2-4 sentences. "tags" include "futureshock".
+Return only the JSON object described in your output format. "lines" = complete spoken sentences in order, plain English, no markdown, no emoji, no numbering.
