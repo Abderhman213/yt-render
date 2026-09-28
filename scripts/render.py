@@ -20,6 +20,7 @@ import random
 import re
 import shutil
 import subprocess
+import time
 import sys
 import urllib.request
 from pathlib import Path
@@ -78,6 +79,22 @@ def run(cmd, **kw):
     """يشغّل أمر ويقع بصوت عالي لو فشل."""
     print("+", " ".join(str(c) for c in cmd), flush=True)
     return subprocess.run(cmd, check=True, **kw)
+
+
+def tts(voice, text, outfile, tries=5):
+    """
+    edge-tts مع إعادة محاولة: سيرفر مايكروسوفت ساعات بيرجع NoAudioReceived
+    لثواني، وده كان بيوقع الرندر كله. بنستنى وقت متزايد ونحاول تاني.
+    """
+    for attempt in range(1, tries + 1):
+        try:
+            return run(["edge-tts", "--voice", voice, "--text", text, "--write-media", str(outfile)])
+        except subprocess.CalledProcessError:
+            if attempt == tries:
+                raise
+            wait = 10 * attempt
+            print(f"! edge-tts فشل (محاولة {attempt}/{tries}) — هحاول تاني بعد {wait} ثانية", flush=True)
+            time.sleep(wait)
 
 
 def duration_of(path):
@@ -158,7 +175,7 @@ def synthesize(lines, voice, outfile):
     طبيعية بين الجمل، فالنتيجة بتبقى صوت متصل بدل قطع ملزوقة.
     """
     text = " ".join(lines)
-    run(["edge-tts", "--voice", voice, "--text", text, "--write-media", str(outfile)])
+    tts(voice, text, outfile)
     return outfile
 
 
@@ -336,7 +353,7 @@ def add_spoken_cta(voice, voice_audio, outdir):
     """
     lang = _cta_lang(voice)
     raw = outdir / "cta_raw.mp3"
-    run(["edge-tts", "--voice", voice, "--text", CTA_LINES[lang], "--write-media", str(raw)])
+    tts(voice, CTA_LINES[lang], raw)
     cta = tighten_pauses(raw, outdir / "cta.m4a")
     start = duration_of(voice_audio) + CTA_GAP
     out = outdir / "voice_cta.m4a"
