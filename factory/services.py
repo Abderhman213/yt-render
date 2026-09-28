@@ -176,7 +176,7 @@ def _col_letter(idx):
 
 # ------------------------------------------------------------ Gemini
 
-def gemini_json(model, system, prompt, example, temperature):
+def gemini_json(model, system, prompt, example, temperature, http_tries=7):
     """
     بديل عقدة AI Agent + Structured Output Parser: بيطلب JSON بس، وبيدّي الموديل
     نفس مثال الشكل اللي كان في n8n. 3 محاولات للطلب كله، و5 للـ HTTP نفسه.
@@ -199,7 +199,7 @@ def gemini_json(model, system, prompt, example, temperature):
         # 429 = حد الطلبات في الدقيقة (القنوات بتشتغل مع بعض). بنستنى المدة اللي
         # Gemini بيقولها (retryDelay) أو نضاعف الانتظار، بدل ما نخبط فيه كل 5 ثواني.
         wait = 8
-        for i in range(7):
+        for i in range(http_tries):
             r = requests.post(url, params={"key": key}, json=body, timeout=180)
             if r.status_code not in (429, 500, 502, 503, 504):
                 r.raise_for_status()
@@ -208,10 +208,12 @@ def gemini_json(model, system, prompt, example, temperature):
             m = re.search(r'"retryDelay":\s*"(\d+)', r.text)
             if m:
                 delay = max(delay, int(m.group(1)) + 1)
-            print(f"! Gemini HTTP {r.status_code} — هستنى {delay} ثانية (محاولة {i + 1}/7)", flush=True)
+            if i == http_tries - 1:
+                break
+            print(f"! Gemini HTTP {r.status_code} — هستنى {delay} ثانية (محاولة {i + 1}/{http_tries})", flush=True)
             time.sleep(min(delay, 65))
             wait = min(wait * 2, 60)
-        raise RuntimeError(f"Gemini HTTP {r.status_code} بعد 7 محاولات: {r.text[:200]}")
+        raise RuntimeError(f"Gemini HTTP {r.status_code} بعد {http_tries} محاولات: {r.text[:200]}")
 
     def once():
         data = http()
@@ -219,7 +221,7 @@ def gemini_json(model, system, prompt, example, temperature):
         text = "".join(p.get("text", "") for p in parts).strip()
         return _parse_json(text)
 
-    return _retry(once, tries=3, wait=5, what="تحليل رد Gemini")
+    return _retry(once, tries=3 if http_tries > 2 else 1, wait=5, what="تحليل رد Gemini")
 
 
 def _parse_json(text):
