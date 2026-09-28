@@ -97,8 +97,16 @@ IMAGE_QUERIES_NOTE = (
 
 
 GATE_FIX_NOTE = (
-    '\nIn "reasons", name the 2-3 concrete changes that would raise this exact script to 90+ '
-    '(which line to rewrite and how). Do not just praise it.'
+    "\n\nSCORING ANCHORS — score against this checklist, not against an imaginary perfect script:\n"
+    "1) line 1 is under 12 words and stops the scroll on its own; 2) every line adds a specific fact, "
+    "name, year, number or sharp take (no filler); 3) it takes a clear side; 4) it escalates to a punchy "
+    "verdict or debate question; 5) 6-9 sentences, no sign-off; 6) facts and numbers are real and "
+    "documented; 7) not a template — details only this topic has.\n"
+    "90-100 = all 7 met. 80-89 = one clearly missed. 70-79 = two missed. Below 70 = three or more, or "
+    "invented facts. Deduct only for a criterion that is actually missed — never hold back 90+ because the "
+    "script 'could be even more provocative' or because you would phrase a line differently.\n"
+    'In "reasons", name which criteria are missed and the exact line change that fixes each one. '
+    "If none are missed, say so."
 )
 
 
