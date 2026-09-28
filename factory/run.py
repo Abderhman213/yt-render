@@ -83,7 +83,9 @@ HOW THIS SCRIPT WILL BE SCORED — a strict reviewer scores it 0-100 and it must
 - 6 to 9 sentences total. Short, spoken, conversational sentences.
 - Every number and fact must be real and documented. No invented stats.
 - Never end with a sign-off ("thanks for watching", "follow for more") — the outro is added automatically.
-- It must not read like a template with the topic swapped in: specific details only this topic has."""
+- It must not read like a template with the topic swapped in: specific details only this topic has.
+- Debate comes from a bold, clearly argued take backed by documented facts. Never insinuate cover-ups,
+  secret plots or "what they don't want you to know" — the reviewer scores conspiratorial framing below 60."""
 
 
 IMAGE_QUERIES_NOTE = (
@@ -100,6 +102,9 @@ GATE_FIX_NOTE = (
 )
 
 
+WRITER_MODEL = "gemini-3.5-flash"  # موديل أقوى لكتابة السكريبت؛ البوابة فاضلة على موديل القناة
+
+
 def ask(ch, stage, text):
     example = ch["examples"][stage]
     if stage == "gate":
@@ -108,6 +113,14 @@ def ask(ch, stage, text):
     if stage in ("script", "long") and '"image_queries"' not in example:
         text = text.rstrip() + IMAGE_QUERIES_NOTE
         example = example[:-1] + ',"image_queries":["specific subject","specific place or year","broad fallback"]}'
+    if stage in ("script", "long"):
+        # الكاتب هو اللي بيحدد جودة السكريبت، فبنجرّب موديل أقوى الأول. لو مش
+        # متاح أو خلصت حصته، نرجع على طول لموديل القناة العادي.
+        try:
+            return services.gemini_json(WRITER_MODEL, ch["systems"][stage], text, example,
+                                        ch["temps"][stage], http_tries=2)
+        except Exception as e:  # noqa: BLE001
+            print(f"! {WRITER_MODEL} مش متاح ({str(e)[:120]}) — هكتب بـ {ch['models'][stage]}", flush=True)
     return services.gemini_json(ch["models"][stage], ch["systems"][stage], text,
                                 example, ch["temps"][stage])
 
@@ -490,14 +503,16 @@ class Run:
 def revision_note(content, verdict):
     """ملاحظات البوابة على النسخة اللي فاتت، عشان النسخة الجاية تصلّحها."""
     return (
-        "\n\nREVISION REQUIRED: your previous draft of this script was rejected by the quality reviewer.\n"
+        "\n\nREVISION REQUIRED: a strict reviewer scored your previous draft of this script "
+        f"{verdict['score']}/100. It must reach {TARGET_SCORE}+.\n"
         f"Previous title: {content.get('title')}\n"
         f"Previous lines: {js_json(content.get('lines') or [])}\n"
-        f"Score: {verdict['score']}/100 (target {TARGET_SCORE}+). Problem: {verdict['reason']}.\n"
-        f"Reviewer notes: {verdict['why'] or 'none'}\n"
-        "Write a new, clearly better version of the SAME topic that fixes every point above: a sharper "
-        "scroll-stopping first line, tighter sentences, stronger escalation and a punchier close. "
-        "If the problem was a duplicate title, use a clearly different title."
+        f"Problem: {verdict['reason']}.\n"
+        f"Reviewer's requested changes: {verdict['why'] or 'none'}\n"
+        "Apply EVERY change the reviewer asked for, exactly as described (if it gives a replacement line, "
+        "use it or something sharper). Keep the lines the reviewer did not criticise — do not rewrite the "
+        "whole script from scratch, because that loses what already worked. "
+        "If the problem was a duplicate title, use a clearly different title.\n"
     )
 
 
