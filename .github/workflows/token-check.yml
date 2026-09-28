@@ -1,0 +1,50 @@
+name: token-check
+
+# فحص يومي لصلاحية الرفع على يوتيوب لكل قناة. أي token ميت أو قرب يموت بيوصل
+# عليه تنبيه تليجرام قبل ما فيديو يترندر ويقع في الرفع.
+on:
+  schedule:
+    - cron: "37 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { key: en, prefix: YT }
+          - { key: es, prefix: YT_ES }
+          - { key: bw, prefix: YT_BW }
+          - { key: gen, prefix: YT_GEN }
+          - { key: states, prefix: YT_STATES }
+          - { key: college, prefix: YT_COLLEGE }
+          - { key: crime, prefix: YT_CRIME }
+          - { key: fc, prefix: YT_FC }
+          - { key: goat, prefix: YT_GOAT }
+          - { key: ref, prefix: YT_REF }
+          - { key: money, prefix: YT_MONEY }
+          - { key: future, prefix: YT_FUTURE }
+          - { key: hist, prefix: YT_HIST }
+    name: ${{ matrix.key }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: factory
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --quiet requests
+      - name: فحص الـ refresh token
+        env:
+          YT_CLIENT_ID: ${{ secrets[format('{0}_CLIENT_ID', matrix.prefix)] }}
+          YT_CLIENT_SECRET: ${{ secrets[format('{0}_CLIENT_SECRET', matrix.prefix)] }}
+          YT_REFRESH_TOKEN: ${{ secrets[format('{0}_REFRESH_TOKEN', matrix.prefix)] }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+        run: python factory/token_check.py "${{ matrix.key }}" "${{ matrix.prefix }}"
